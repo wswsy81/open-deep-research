@@ -248,7 +248,7 @@ Local models through Ollama bypass rate limiting since they run on your machine.
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm, yarn, pnpm, or bun
 
 ### Installation
@@ -335,6 +335,27 @@ bun dev
 2. Sign up or log in to your account
 3. Go to API Keys section
 4. Create a new API key
+
+#### Google Custom Search API
+
+You'll need two components to use Google Custom Search:
+
+1. **Get API Key**:
+
+   - Visit [Google Cloud Console](https://console.cloud.google.com)
+   - Create a new project or select an existing one
+   - Enable the "Custom Search API" for your project
+   - Go to "Credentials" and click "Create credentials" → "API key"
+   - Your new API key will be displayed. Copy it for the `GOOGLE_SEARCH_API_KEY` environment variable
+   - Note: The API key is safe for embedding in URLs and doesn't need encoding
+
+2. **Get Search Engine ID (CX)**:
+   - Visit [Programmable Search Engine Control Panel](https://programmablesearchengine.google.com/controlpanel/create)
+   - Create a new search engine
+   - After creation, find your Search Engine ID in the "Overview" page's "Basic" section
+   - Copy the ID (this is the `cx` parameter) for the `GOOGLE_SEARCH_CX` environment variable
+
+Note: For Programmable Search Engine (free edition) users, you can get your API key directly through the [Get a Key](https://developers.google.com/custom-search/v1/introduction) page.
 
 #### Anthropic API Key
 
