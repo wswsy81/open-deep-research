@@ -323,19 +323,6 @@ bun dev
 2. Create a Bing Search resource
 3. Get the subscription key from "Keys and Endpoint"
 
-#### Google Gemini Pro API
-
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create an API key
-3. Copy the API key
-
-#### OpenAI API Key
-
-1. Visit [OpenAI Platform](https://platform.openai.com)
-2. Sign up or log in to your account
-3. Go to API Keys section
-4. Create a new API key
-
 #### Google Custom Search API
 
 You'll need two components to use Google Custom Search:
@@ -351,6 +338,19 @@ You'll need two components to use Google Custom Search:
    - Create a new search engine
    - After creation, find your Search Engine ID in the "Overview" page's "Basic" section
    - Copy the ID (this is the `cx` parameter) for the `GOOGLE_SEARCH_CX` environment variable
+
+#### Google Gemini Pro API
+
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create an API key
+3. Copy the API key
+
+#### OpenAI API Key
+
+1. Visit [OpenAI Platform](https://platform.openai.com)
+2. Sign up or log in to your account
+3. Go to API Keys section
+4. Create a new API key
 
 #### Anthropic API Key
 
