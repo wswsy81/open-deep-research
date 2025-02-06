@@ -9,7 +9,8 @@ import { type Article } from '@/types'
 import { CONFIG } from '@/lib/config'
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
-
+import ollama from 'ollama'
+import { extractAndParseJSON } from '@/lib/utils'
 export const maxDuration = 60
 
 const openai = new OpenAI({
@@ -36,6 +37,8 @@ type PlatformModel =
   | 'haiku-3.5'
   | 'deepseek__chat'
   | 'deepseek__reasoner'
+  | 'ollama__llama3.2'
+  | 'ollama__deepseek-r1:14b'
 
 type DeepSeekMessage = {
   role: 'user' | 'assistant' | 'system'
@@ -118,6 +121,15 @@ async function generateWithAnthropic(systemPrompt: string, model: string) {
     ],
   })
   return response.content[0].text || ''
+}
+
+async function generateWithOllama(systemPrompt: string, model: string) {
+  const response = await ollama.chat({
+    model: model.replace('ollama__', ''),
+    messages: [{ role: 'user', content: systemPrompt }],
+  })
+  console.log('ollama response', response)
+  return response.message.content
 }
 
 export async function POST(request: Request) {
@@ -231,69 +243,32 @@ Important: Do not use phrases like "Source 1" or "According to Source 2". Instea
 
     try {
       let response: string | null = null
-      switch (model) {
-        case 'gemini-flash':
-          response = await generateWithGemini(systemPrompt, 'gemini-flash')
+      switch (platform) {
+        case 'google':
+          response = await generateWithGemini(systemPrompt, model)
           break
-        case 'gemini-flash-thinking':
-          response = await generateWithGemini(
-            systemPrompt,
-            'gemini-flash-thinking'
-          )
+        case 'openai':
+          response = await generateWithOpenAI(systemPrompt, model)
           break
-        case 'gemini-exp':
-          response = await generateWithGemini(systemPrompt, 'gemini-exp')
+        case 'deepseek':
+          response = await generateWithDeepSeek(systemPrompt, model)
           break
-        case 'gpt-4o':
-          response = await generateWithOpenAI(systemPrompt, 'gpt-4o')
+        case 'anthropic':
+          response = await generateWithAnthropic(systemPrompt, model)
           break
-        case 'o1-mini':
-          response = await generateWithOpenAI(systemPrompt, 'o1-mini')
-          break
-        case 'o1':
-          response = await generateWithOpenAI(systemPrompt, 'o1')
-          break
-        case 'sonnet-3.5':
-          response = await generateWithAnthropic(
-            systemPrompt,
-            'claude-3-5-sonnet-latest'
-          )
-          break
-        case 'haiku-3.5':
-          response = await generateWithAnthropic(
-            systemPrompt,
-            'claude-3-5-haiku-latest'
-          )
-          break
-        case 'chat':
-          response = await generateWithDeepSeek(systemPrompt, 'deepseek-chat')
-          break
-        case 'reasoner':
-          response = await generateWithDeepSeek(
-            systemPrompt,
-            'deepseek-reasoner'
-          )
+        case 'ollama':
+          response = await generateWithOllama(systemPrompt, model)
           break
         default:
-          throw new Error('Invalid platform/model combination')
+          throw new Error('Invalid platform specified')
       }
 
       if (!response) {
         throw new Error('No response from model')
       }
 
-      // Extract JSON using regex
-      const jsonMatch = response.match(/\{[\s\S]*\}/)?.[0]
-      if (!jsonMatch) {
-        console.error('No JSON found in response')
-        return NextResponse.json(
-          { error: 'Invalid report format' },
-          { status: 500 }
-        )
-      }
-
       try {
-        const reportData = JSON.parse(jsonMatch)
+        const reportData = extractAndParseJSON(response)
         // Add sources to the report data
         reportData.sources = sources
         console.log('Parsed report data:', reportData)
