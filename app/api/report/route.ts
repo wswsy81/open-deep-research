@@ -147,8 +147,10 @@ export async function POST(request: Request) {
       platformModel: PlatformModel
     }
 
-    // Only check rate limit if enabled
-    if (CONFIG.rateLimits.enabled) {
+    // Only check rate limit if enabled and not using Ollama (local model)
+    const platform = platformModel.split('__')[0]
+    const model = platformModel.split('__')[1]
+    if (CONFIG.rateLimits.enabled && platform !== 'ollama') {
       const { success } = await reportContentRatelimit.limit('report')
       if (!success) {
         return NextResponse.json(
@@ -159,9 +161,6 @@ export async function POST(request: Request) {
     }
 
     // Check if selected platform is enabled
-    const platform = platformModel.split('__')[0]
-    const model = platformModel.split('__')[1]
-
     const platformConfig =
       CONFIG.platforms[platform as keyof typeof CONFIG.platforms]
     if (!platformConfig?.enabled) {
