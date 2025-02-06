@@ -339,7 +339,7 @@ You'll need two components to use Google Custom Search:
    - After creation, find your Search Engine ID in the "Overview" page's "Basic" section
    - Copy the ID (this is the `cx` parameter) for the `GOOGLE_SEARCH_CX` environment variable
 
-#### Google Gemini Pro API
+#### Google Gemini API Key
 
 1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create an API key
