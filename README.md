@@ -60,17 +60,41 @@ rateLimits: {
 
 Note: If you set `enabled: false`, you can run the application without setting up Redis. This is useful for local development or when you don't need rate limiting.
 
-### Search Settings
+### Search Provider Configuration
 
-Customize the search behavior:
+The app supports both Google Custom Search and Bing Search APIs. You can configure your preferred search provider in `lib/config.ts`:
 
 ```typescript
 search: {
-  resultsPerPage: 10,           // Number of search results to fetch
-  maxSelectableResults: 3,      // Maximum results users can select for reports
-  safeSearch: 'Moderate',       // SafeSearch setting ('Off', 'Moderate', 'Strict')
-  market: 'en-US',             // Search market/region
+  resultsPerPage: 10,
+  maxSelectableResults: 3,
+  provider: 'google', // 'google' or 'bing'
+  safeSearch: {
+    google: 'active',  // 'active' or 'off'
+    bing: 'moderate'   // 'moderate', 'strict', or 'off'
+  },
+  market: 'en-US',
 }
+```
+
+To use Google Custom Search:
+
+1. Get your API key from [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a Custom Search Engine and get your CX ID from [Google Programmable Search](https://programmablesearchengine.google.com/)
+3. Add the credentials to your `.env.local` file:
+
+```bash
+GOOGLE_SEARCH_API_KEY="your-api-key"
+GOOGLE_SEARCH_CX="your-cx-id"
+```
+
+To use Bing Search:
+
+1. Get your API key from [Azure Portal](https://portal.azure.com/)
+2. Add the credential to your `.env.local` file:
+
+```bash
+AZURE_SUB_KEY="your-azure-key"
 ```
 
 ### Knowledge Base
@@ -343,39 +367,6 @@ bun dev
 - [Azure Bing Search](https://www.microsoft.com/en-us/bing/apis/bing-web-search-api) - Web search
 - [Upstash Redis](https://upstash.com/) - Rate limiting
 - [jsPDF](https://github.com/parallax/jsPDF) & [docx](https://github.com/dolanmiu/docx) - Document generation
-
-### Search Provider Configuration
-
-The app supports both Google Custom Search and Bing Search APIs. You can configure your preferred search provider in `lib/config.ts`:
-
-```typescript
-search: {
-  resultsPerPage: 10,
-  maxSelectableResults: 3,
-  provider: 'google', // 'google' or 'bing'
-  safeSearch: {
-    google: 'active',  // 'active' or 'off'
-    bing: 'moderate'   // 'moderate', 'strict', or 'off'
-  },
-  market: 'en-US',
-}
-```
-
-To use Google Custom Search:
-1. Get your API key from [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a Custom Search Engine and get your CX ID from [Google Programmable Search](https://programmablesearchengine.google.com/)
-3. Add the credentials to your `.env.local` file:
-```bash
-GOOGLE_SEARCH_API_KEY="your-api-key"
-GOOGLE_SEARCH_CX="your-cx-id"
-```
-
-To use Bing Search:
-1. Get your API key from [Azure Portal](https://portal.azure.com/)
-2. Add the credential to your `.env.local` file:
-```bash
-AZURE_SUB_KEY="your-azure-key"
-```
 
 The app will use the configured provider (default: Google) for all searches. You can switch providers by updating the `provider` value in the config file.
 
