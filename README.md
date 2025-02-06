@@ -9,16 +9,17 @@ An open-source alternative to Gemini Deep Research, built to generate AI-powered
 
 This app functions in three key steps:
 
-1. **Search Results Retrieval**: Using the Bing Search API, the app fetches comprehensive search results for the specified search term.
+1. **Search Results Retrieval**: Using either Google Custom Search or Bing Search API (configurable), the app fetches comprehensive search results for the specified search term.
 2. **Content Extraction**: Leveraging JinaAI, it retrieves and processes the contents of the selected search results, ensuring accurate and relevant information.
 3. **Report Generation**: With the curated search results and extracted content, the app generates a detailed report using your chosen AI model (Gemini, GPT-4, Sonnet, etc.), providing insightful and synthesized output tailored to your custom prompts.
 4. **Knowledge Base**: Save and access your generated reports in a personal knowledge base for future reference and easy retrieval.
 
-Open Deep Research combines powerful tools to streamline research and report creation in a user-friendly, open-source platform. You can customize the app to your needs (select your preferred AI model, customize prompts, update rate limits, and configure the number of results both fetched and selected).
+Open Deep Research combines powerful tools to streamline research and report creation in a user-friendly, open-source platform. You can customize the app to your needs (select your preferred search provider, AI model, customize prompts, update rate limits, and configure the number of results both fetched and selected).
 
 ## Features
 
-- 🔍 Web search with time filtering
+- 🔍 Flexible web search with Google or Bing APIs
+- ⏱️ Time-based filtering of search results
 - 📄 Content extraction from web pages
 - 🤖 Multi-platform AI support (Google Gemini, OpenAI GPT, Anthropic Sonnet)
 - 🎯 Flexible model selection with granular configuration
@@ -250,9 +251,6 @@ bun install
 3. Create a `.env.local` file in the root directory:
 
 ```env
-# Azure Bing Search API key (required for web search)
-AZURE_SUB_KEY=your_azure_subscription_key
-
 # Google Gemini Pro API key (required for AI report generation)
 GEMINI_API_KEY=your_gemini_api_key
 
@@ -268,6 +266,13 @@ DEEPSEEK_API_KEY=your_deepseek_api_key
 # Upstash Redis (required for rate limiting)
 UPSTASH_REDIS_REST_URL=your_upstash_redis_url
 UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
+
+# Bing Search API (Optional - if using Bing as search provider)
+AZURE_SUB_KEY="your-azure-subscription-key"
+
+# Google Custom Search API (Optional - if using Google as search provider)
+GOOGLE_SEARCH_API_KEY="your-google-search-api-key"
+GOOGLE_SEARCH_CX="your-google-search-cx"
 ```
 
 Note: You only need to provide API keys for the platforms you plan to use. If a platform is enabled in the config but its API key is missing, those models will appear disabled in the UI.
@@ -357,3 +362,38 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 If you're interested in following all the random projects I'm working on, you can find me on Twitter:
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/deepwhitman?style=social)](https://x.com/deepwhitman)
+
+### Search Provider Configuration
+
+The app supports both Google Custom Search and Bing Search APIs. You can configure your preferred search provider in `lib/config.ts`:
+
+```typescript
+search: {
+  resultsPerPage: 10,
+  maxSelectableResults: 3,
+  provider: 'google', // 'google' or 'bing'
+  safeSearch: {
+    google: 'active',  // 'active' or 'off'
+    bing: 'moderate'   // 'moderate', 'strict', or 'off'
+  },
+  market: 'en-US',
+}
+```
+
+To use Google Custom Search:
+1. Get your API key from [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a Custom Search Engine and get your CX ID from [Google Programmable Search](https://programmablesearchengine.google.com/)
+3. Add the credentials to your `.env.local` file:
+```bash
+GOOGLE_SEARCH_API_KEY="your-api-key"
+GOOGLE_SEARCH_CX="your-cx-id"
+```
+
+To use Bing Search:
+1. Get your API key from [Azure Portal](https://portal.azure.com/)
+2. Add the credential to your `.env.local` file:
+```bash
+AZURE_SUB_KEY="your-azure-key"
+```
+
+The app will use the configured provider (default: Google) for all searches. You can switch providers by updating the `provider` value in the config file.
