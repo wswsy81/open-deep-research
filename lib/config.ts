@@ -37,12 +37,8 @@ export const CONFIG = {
     ollama: {
       enabled: true,
       models: {
-        'llama3.2': {
-          enabled: true,
-          label: 'Llama 3.2',
-        },
         'deepseek-r1:1.5b': {
-          enabled: true,
+          enabled: false,
           label: 'DeepSeek R1 1.5B',
         },
       },

@@ -195,6 +195,30 @@ export const maxDuration = 120 // Set to 120 seconds or higher
 
 Note: The maximum duration limit may vary based on your hosting platform and subscription tier.
 
+### Local Models with Ollama
+
+The app supports local model inference through Ollama integration. You can:
+
+1. Install [Ollama](https://ollama.ai/) on your machine
+2. Pull your preferred models using `ollama pull model-name`
+3. Configure the model in `lib/config.ts`:
+
+```typescript
+platforms: {
+  ollama: {
+    enabled: true,
+    models: {
+      'your-model-name': {
+        enabled: true,
+        label: 'Your Model Display Name'
+      }
+    }
+  }
+}
+```
+
+Local models through Ollama bypass rate limiting since they run on your machine. This makes them perfect for development, testing, or when you need unlimited generations.
+
 ## Getting Started
 
 ### Prerequisites
