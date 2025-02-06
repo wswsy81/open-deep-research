@@ -344,25 +344,6 @@ bun dev
 - [Upstash Redis](https://upstash.com/) - Rate limiting
 - [jsPDF](https://github.com/parallax/jsPDF) & [docx](https://github.com/dolanmiu/docx) - Document generation
 
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-## License
-
-[MIT](https://github.com/btahir/open-deep-research/blob/main/LICENSE)
-
-## Acknowledgments
-
-- Inspired by Google's Gemini Deep Research feature
-- Built with amazing open source tools and APIs
-
-## Follow Me
-
-If you're interested in following all the random projects I'm working on, you can find me on Twitter:
-
-[![Twitter Follow](https://img.shields.io/twitter/follow/deepwhitman?style=social)](https://x.com/deepwhitman)
-
 ### Search Provider Configuration
 
 The app supports both Google Custom Search and Bing Search APIs. You can configure your preferred search provider in `lib/config.ts`:
@@ -397,3 +378,22 @@ AZURE_SUB_KEY="your-azure-key"
 ```
 
 The app will use the configured provider (default: Google) for all searches. You can switch providers by updating the `provider` value in the config file.
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+## License
+
+[MIT](https://github.com/btahir/open-deep-research/blob/main/LICENSE)
+
+## Acknowledgments
+
+- Inspired by Google's Gemini Deep Research feature
+- Built with amazing open source tools and APIs
+
+## Follow Me
+
+If you're interested in following all the random projects I'm working on, you can find me on Twitter:
+
+[![Twitter Follow](https://img.shields.io/twitter/follow/deepwhitman?style=social)](https://x.com/deepwhitman)
