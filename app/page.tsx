@@ -13,6 +13,7 @@ import {
   X,
   ChevronDown,
   Brain,
+  Code,
 } from 'lucide-react'
 import {
   Select,
@@ -128,19 +129,20 @@ export default function Home() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        const errorMessage = errorData.error || 'Search failed. Please try again.'
+        const errorMessage =
+          errorData.error || 'Search failed. Please try again.'
         setError(errorMessage)
         toast({
-          title: "Search Error",
+          title: 'Search Error',
           description: errorMessage,
-          variant: "destructive",
+          variant: 'destructive',
         })
         setResults([])
         return
       }
 
       const data = await response.json()
-      
+
       // Clear any previous errors if the search was successful
       setError(null)
 
@@ -183,12 +185,13 @@ export default function Home() {
       setResults([...uniqueResults, ...newResults])
     } catch (error) {
       console.error('Search failed:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Search failed'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Search failed'
       setError(errorMessage)
       toast({
-        title: "Search Error",
+        title: 'Search Error',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       })
     } finally {
       setLoading(false)
@@ -229,9 +232,9 @@ export default function Home() {
       const errorMessage = 'Please enter a valid URL'
       setError(errorMessage)
       toast({
-        title: "Invalid URL",
+        title: 'Invalid URL',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       })
     }
   }
@@ -371,12 +374,13 @@ export default function Home() {
       setActiveTab('report')
     } catch (error) {
       console.error('Report generation failed:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Report generation failed'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Report generation failed'
       setError(errorMessage)
       toast({
-        title: "Report Generation Failed",
+        title: 'Report Generation Failed',
         description: errorMessage,
-        variant: "destructive",
+        variant: 'destructive',
       })
     } finally {
       setGeneratingReport(false)
@@ -440,25 +444,35 @@ export default function Home() {
           </h1>
           <div className='text-center space-y-3 mb-8'>
             <p className='text-gray-600'>
-              <a
-                href='https://github.com/btahir/open-deep-research'
-                target='_blank'
-                rel='noopener noreferrer'
-                className='text-blue-600 hover:underline'
-              >
-                Open source alternative
-              </a>{' '}
-              to Gemini Deep Research. Generate reports with AI based on search
-              results.
+              Open source alternative to Gemini Deep Research. Generate reports
+              with AI based on search results.
             </p>
-            <div className='inline-block'>
-              <button
+            <div className='flex justify-center items-center gap-2'>
+              <Button
+                variant='default'
+                size='sm'
                 onClick={() => setSidebarOpen(true)}
-                className='text-gray-600 hover:text-gray-900 inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 transition-colors'
+                className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
               >
                 <Brain className='h-4 w-4' />
                 View Knowledge Base
-              </button>
+              </Button>
+              <Button
+                asChild
+                variant='outline'
+                size='sm'
+                className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
+              >
+                <a
+                  href='https://github.com/btahir/open-deep-research'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className=''
+                >
+                  <Code className='h-4 w-4' />
+                  View Code
+                </a>
+              </Button>
             </div>
           </div>
           <form onSubmit={handleSearch} className='space-y-4'>
