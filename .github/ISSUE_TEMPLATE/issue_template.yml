@@ -1,6 +1,6 @@
 name: 'Issue with Pre-Submission Checklist'
 description: "Before submitting your issue, please confirm you've followed these steps."
-title: ''
+title: '[Issue] - '
 labels: []
 assignees: []
 
