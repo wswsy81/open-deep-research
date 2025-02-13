@@ -5,7 +5,7 @@
   <p><em>Note: Demo is sped up for brevity</em></p>
 </div>
 
-An open-source alternative to Gemini Deep Research, built to generate AI-powered reports from web search results with precision and efficiency. Supporting multiple AI platforms (Google, OpenAI, Anthropic) and models, it offers flexibility in choosing the right AI model for your research needs.
+A powerful open-source research assistant that generates comprehensive AI-powered reports from web search results. Unlike other Deep Research solutions, it provides seamless integration with multiple AI platforms including Google, OpenAI, Anthropic, DeepSeek, and even local models - giving you the freedom to choose the perfect AI model for your specific research requirements.
 
 This app functions in three key steps:
 
