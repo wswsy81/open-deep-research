@@ -301,26 +301,13 @@ GOOGLE_SEARCH_CX="your-google-search-cx"
 
 Note: You only need to provide API keys for the platforms you plan to use. If a platform is enabled in the config but its API key is missing, those models will appear disabled in the UI.
 
-### Docker Setup
+### Running the Application
 
-If you prefer using Docker, you can build and run the application in a container after setting up your environment variables:
+You can run the application either directly on your machine or using Docker.
 
-1. Build the Docker image:
+#### Option 1: Traditional Setup
 
-```bash
-docker build -t open-deep-research:v1 .
-```
-
-2. Run the container:
-
-```bash
-docker run -p 3000:3000 open-deep-research
-```
-
-The application will be available at [http://localhost:3000](http://localhost:3000).
-
-4. Start the development server:
-
+1. Start the development server:
 ```bash
 npm run dev
 # or
@@ -331,7 +318,23 @@ pnpm dev
 bun dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+2. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+#### Option 2: Docker Setup
+
+If you prefer using Docker, you can build and run the application in a container after setting up your environment variables:
+
+1. Build the Docker image:
+```bash
+docker build -t open-deep-research:v1 .
+```
+
+2. Run the container:
+```bash
+docker run -p 3000:3000 open-deep-research
+```
+
+The application will be available at [http://localhost:3000](http://localhost:3000).
 
 ### Getting API Keys
 
