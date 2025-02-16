@@ -1,15 +1,7 @@
-export type Report = {
+export interface Article {
+  url: string
   title: string
-  summary: string
-  sections: {
-    title: string
-    content: string
-  }[]
-  sources: {
-    id: string
-    url: string
-    name: string
-  }[]
+  content: string
 }
 
 export type KnowledgeBaseReport = {
