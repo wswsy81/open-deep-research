@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -31,7 +31,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Report } from '@/types'
+import type {
+  Report,
+  SearchResult,
+  RankingResult,
+  PlatformModel,
+  Status,
+  State,
+} from '@/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CONFIG } from '@/lib/config'
@@ -43,28 +50,6 @@ import {
 import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
 import { useToast } from '@/hooks/use-toast'
 import { KnowledgeBaseSidebar } from '@/components/knowledge-base-sidebar'
-
-type SearchResult = {
-  id: string
-  url: string
-  name: string
-  snippet: string
-  isCustomUrl?: boolean
-  score?: number
-}
-
-type RankingResult = {
-  url: string
-  score: number
-  reasoning: string
-}
-
-type PlatformModel = {
-  value: string
-  label: string
-  platform: string
-  disabled: boolean
-}
 
 const timeFilters = [
   { value: 'all', label: 'Any time' },
@@ -92,6 +77,7 @@ const platformModels = Object.entries(CONFIG.platforms)
   .filter(Boolean) as (PlatformModel & { disabled: boolean })[]
 
 const MAX_SELECTIONS = CONFIG.search.maxSelectableResults
+const DEFAULT_MODEL = 'google__gemini-flash'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -119,568 +105,570 @@ const retryWithBackoff = async <T,>(
 }
 
 export default function Home() {
-  const [query, setQuery] = useState('')
-  const [timeFilter, setTimeFilter] = useState('all')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [loading, setLoading] = useState(false)
-  const [selectedResults, setSelectedResults] = useState<string[]>([])
-  const [reportPrompt, setReportPrompt] = useState('')
-  const [generatingReport, setGeneratingReport] = useState(false)
-  const [activeTab, setActiveTab] = useState('search')
-  const [report, setReport] = useState<Report | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [fetchStatus, setFetchStatus] = useState<{
-    total: number
-    successful: number
-    fallback: number
-    sourceStatuses: Record<string, 'fetched' | 'preview'>
-  }>({ total: 0, successful: 0, fallback: 0, sourceStatuses: {} })
-  const [newUrl, setNewUrl] = useState('')
-  const [isSourcesOpen, setIsSourcesOpen] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<string>(
-    'google__gemini-flash'
-  )
-  const [isAgentMode, setIsAgentMode] = useState(false)
-  const [agentStep, setAgentStep] = useState<
-    'idle' | 'processing' | 'searching' | 'analyzing' | 'generating'
-  >('idle')
-  const [searchQueries, setSearchQueries] = useState<string[]>([])
-  const [agentInsights, setAgentInsights] = useState<string[]>([])
-  const { addReport } = useKnowledgeBase()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  // Consolidated state management
+  const [state, setState] = useState<State>({
+    query: '',
+    timeFilter: 'all',
+    results: [],
+    selectedResults: [],
+    reportPrompt: '',
+    report: null,
+    error: null,
+    newUrl: '',
+    isSourcesOpen: false,
+    selectedModel: DEFAULT_MODEL,
+    isAgentMode: false,
+    sidebarOpen: false,
+    activeTab: 'search',
+    status: {
+      loading: false,
+      generatingReport: false,
+      agentStep: 'idle',
+      fetchStatus: { total: 0, successful: 0, fallback: 0, sourceStatuses: {} },
+      agentInsights: [],
+      searchQueries: [],
+    },
+  })
 
+  const { addReport } = useKnowledgeBase()
   const { toast } = useToast()
 
-  // Add effect to auto-generate report when results are selected
-  useEffect(() => {
-    if (
-      !isAgentMode &&
-      selectedResults.length > 0 &&
-      reportPrompt.trim() &&
-      !generatingReport
-    ) {
-      // Removed auto-generation
-    }
-  }, [selectedResults, isAgentMode])
+  // Memoized state update functions
+  const updateState = useCallback((updates: Partial<State>) => {
+    setState((prev) => ({ ...prev, ...updates }))
+  }, [])
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!query.trim()) return
+  const updateStatus = useCallback(
+    (updates: Partial<Status> | ((prev: Status) => Status)) => {
+      setState((prev) => {
+        const newStatus =
+          typeof updates === 'function'
+            ? updates(prev.status)
+            : { ...prev.status, ...updates }
+        return { ...prev, status: newStatus }
+      })
+    },
+    []
+  )
 
-    setLoading(true)
-    setError(null)
-    setReportPrompt('')
+  // Memoized error handler
+  const handleError = useCallback(
+    (error: unknown, context: string) => {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      updateState({ error: message })
+      toast({ title: context, description: message, variant: 'destructive' })
+    },
+    [toast, updateState]
+  )
+
+  // Memoized content fetcher with proper type handling
+  const fetchContent = useCallback(async (url: string) => {
     try {
-      const response = await retryWithBackoff(async () => {
-        const res = await fetch('/api/search', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ query, timeFilter }),
-        })
-
-        if (!res.ok) {
-          const errorData = await res.json()
-          throw new Error(errorData.error || 'Search failed. Please try again.')
-        }
-
-        return res.json()
+      const response = await fetch('/api/fetch-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
       })
 
-      // Clear any previous errors if the search was successful
-      setError(null)
+      if (!response.ok) throw new Error('Failed to fetch content')
+      const data = await response.json()
+      return data
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('429')) throw error
+      return { content: null }
+    }
+  }, [])
 
-      // Create a Set to track unique IDs
-      const seenIds = new Set<string>()
-      const uniqueResults: SearchResult[] = []
+  // Memoized result selection handler
+  const handleResultSelect = useCallback((resultId: string) => {
+    setState((prev: State) => {
+      if (prev.selectedResults.includes(resultId)) {
+        return {
+          ...prev,
+          selectedResults: prev.selectedResults.filter((id) => id !== resultId),
+        }
+      }
+      if (prev.selectedResults.length >= MAX_SELECTIONS) return prev
 
-      // First add selected items
-      results
-        .filter((r) => selectedResults.includes(r.id))
-        .forEach((item) => {
-          if (!seenIds.has(item.id)) {
-            uniqueResults.push(item)
-            seenIds.add(item.id)
-          }
-        })
+      const newSelectedResults = [...prev.selectedResults, resultId]
+      let newReportPrompt = prev.reportPrompt
 
-      // Then add custom URLs
-      results
-        .filter((r) => r.isCustomUrl)
-        .forEach((item) => {
-          if (!seenIds.has(item.id)) {
-            uniqueResults.push(item)
-            seenIds.add(item.id)
-          }
-        })
+      if (
+        !prev.isAgentMode &&
+        newSelectedResults.length === 1 &&
+        !prev.reportPrompt
+      ) {
+        const result = prev.results.find((r) => r.id === resultId)
+        if (result) {
+          newReportPrompt = `Analyze and summarize information about ${result.name}`
+        }
+      }
 
-      // Finally add new search results
-      const timestamp = Date.now()
-      const newResults = (response.webPages?.value || [])
-        .map((result: SearchResult) => ({
-          ...result,
-          id: `search-${timestamp}-${result.id || result.url}`,
-        }))
-        .filter(
-          (newResult: SearchResult) =>
-            !uniqueResults.some((existing) => existing.url === newResult.url)
+      return {
+        ...prev,
+        selectedResults: newSelectedResults,
+        reportPrompt: newReportPrompt,
+      }
+    })
+  }, [])
+
+  // Memoized search handler
+  const handleSearch = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!state.query.trim()) return
+
+      updateStatus({ loading: true })
+      updateState({ error: null, reportPrompt: '' })
+
+      try {
+        const response = await retryWithBackoff(() =>
+          fetch('/api/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: state.query,
+              timeFilter: state.timeFilter,
+            }),
+          }).then((res) => res.json())
         )
 
-      setResults([...uniqueResults, ...newResults])
-    } catch (error) {
-      console.error('Search failed:', error)
-      const errorMessage =
-        error instanceof Error ? error.message : 'Search failed'
-      setError(errorMessage)
-      toast({
-        title: 'Search Error',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-      setResults([])
-    } finally {
-      setLoading(false)
-    }
-  }
+        const newResults = (response.webPages?.value || []).map(
+          (result: SearchResult) => ({
+            ...result,
+            id: `search-${Date.now()}-${result.id || result.url}`,
+          })
+        )
 
-  // Add handler for result selection that includes prompt
-  const handleResultSelect = (resultId: string) => {
-    setSelectedResults((prev) => {
-      if (prev.includes(resultId)) {
-        return prev.filter((id) => id !== resultId)
+        setState((prev) => ({
+          ...prev,
+          results: [
+            ...prev.results.filter(
+              (r) => r.isCustomUrl || prev.selectedResults.includes(r.id)
+            ),
+            ...newResults.filter(
+              (newResult: SearchResult) =>
+                !prev.results.some((existing) => existing.url === newResult.url)
+            ),
+          ],
+          error: null,
+        }))
+      } catch (error) {
+        handleError(error, 'Search Error')
+      } finally {
+        updateStatus({ loading: false })
       }
-      if (prev.length >= MAX_SELECTIONS) {
-        return prev
-      }
+    },
+    [
+      state.query,
+      state.timeFilter,
+      state.selectedResults,
+      handleError,
+      updateStatus,
+      updateState,
+    ]
+  )
 
-      // If this is the first selection in regular mode, suggest a title
-      if (!isAgentMode && prev.length === 0 && !reportPrompt) {
-        const result = results.find((r) => r.id === resultId)
-        if (result) {
-          const suggestedPrompt = `Analyze and summarize information about ${result.name}`
-          setReportPrompt(suggestedPrompt)
-        }
-      }
+  // Memoized report generation handler with proper type handling
+  const generateReport = useCallback(async () => {
+    if (!state.reportPrompt || state.selectedResults.length === 0) return
 
-      return [...prev, resultId]
-    })
-  }
-
-  const handleAddCustomUrl = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newUrl.trim()) return
-
-    try {
-      new URL(newUrl) // Validate URL format
-      if (!results.some((r) => r.url === newUrl)) {
-        const timestamp = Date.now()
-        const newResult: SearchResult = {
-          id: `custom-${timestamp}-${newUrl}`,
-          url: newUrl,
-          name: 'Custom URL',
-          snippet: 'Custom URL added by user',
-          isCustomUrl: true,
-        }
-        setResults((prev) => [newResult, ...prev])
-      }
-      setNewUrl('')
-    } catch {
-      const errorMessage = 'Please enter a valid URL'
-      setError(errorMessage)
-      toast({
-        title: 'Invalid URL',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleRemoveResult = (resultId: string) => {
-    setResults((prev) => prev.filter((r) => r.id !== resultId))
-    setSelectedResults((prev) => prev.filter((id) => id !== resultId))
-  }
-
-  const handleGenerateReport = async () => {
-    if (!reportPrompt || selectedResults.length === 0) return
-
-    setGeneratingReport(true)
-    setError(null)
-    setFetchStatus({
-      total: selectedResults.length,
+    updateStatus({ generatingReport: true })
+    updateState({ error: null })
+    const initialFetchStatus: Status['fetchStatus'] = {
+      total: state.selectedResults.length,
       successful: 0,
       fallback: 0,
       sourceStatuses: {},
-    })
+    }
+    updateStatus({ fetchStatus: initialFetchStatus })
 
     try {
-      const selectedArticles = results.filter((r) =>
-        selectedResults.includes(r.id)
-      )
-
-      // Fetch content for each URL
-      const contentResults = []
-      let hitRateLimit = false
-
-      for (const article of selectedArticles) {
-        try {
-          const response = await fetch('/api/fetch-content', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ url: article.url }),
-          })
-
-          if (response.ok) {
-            const { content } = await response.json()
-            contentResults.push({
-              url: article.url,
-              title: article.name,
-              content: content,
-            })
-            setFetchStatus((prev) => ({
+      const contentResults = await Promise.all(
+        state.results
+          .filter((r) => state.selectedResults.includes(r.id))
+          .map(async (article) => {
+            try {
+              const { content } = await fetchContent(article.url)
+              if (content) {
+                updateStatus((prev: Status) => ({
+                  ...prev,
+                  fetchStatus: {
+                    ...prev.fetchStatus,
+                    successful: prev.fetchStatus.successful + 1,
+                    sourceStatuses: {
+                      ...prev.fetchStatus.sourceStatuses,
+                      [article.url]: 'fetched' as const,
+                    },
+                  },
+                }))
+                return { url: article.url, title: article.name, content }
+              }
+            } catch (error) {
+              if (error instanceof Error && error.message.includes('429'))
+                throw error
+            }
+            updateStatus((prev: Status) => ({
               ...prev,
-              successful: prev.successful + 1,
-              sourceStatuses: {
-                ...prev.sourceStatuses,
-                [article.url]: 'fetched',
+              fetchStatus: {
+                ...prev.fetchStatus,
+                fallback: prev.fetchStatus.fallback + 1,
+                sourceStatuses: {
+                  ...prev.fetchStatus.sourceStatuses,
+                  [article.url]: 'preview' as const,
+                },
               },
             }))
-          } else if (response.status === 429) {
-            hitRateLimit = true
-            throw new Error(
-              'Rate limit exceeded. Please wait a moment before generating another report.'
-            )
-          } else {
-            console.warn(
-              `Failed to fetch content for ${article.url}, using snippet`
-            )
-            contentResults.push({
+            return {
               url: article.url,
               title: article.name,
               content: article.snippet,
-            })
-            setFetchStatus((prev) => ({
-              ...prev,
-              fallback: prev.fallback + 1,
-              sourceStatuses: {
-                ...prev.sourceStatuses,
-                [article.url]: 'preview',
-              },
-            }))
-          }
-        } catch (error) {
-          if (hitRateLimit) throw error
-          console.warn(`Error fetching ${article.url}, using snippet:`, error)
-          contentResults.push({
-            url: article.url,
-            title: article.name,
-            content: article.snippet,
+            }
           })
-          setFetchStatus((prev) => ({
-            ...prev,
-            fallback: prev.fallback + 1,
-          }))
-        }
-      }
-
-      // Only proceed with successful fetches
-      const successfulResults = contentResults.filter(
-        (result) => result.content && result.content.trim().length > 0
       )
 
-      if (successfulResults.length === 0) {
-        throw new Error(
-          'Failed to fetch usable content for any of the selected articles'
-        )
+      const response = await retryWithBackoff(() =>
+        fetch('/api/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            selectedResults: contentResults.filter((r) => r.content?.trim()),
+            sources: state.results.filter((r) =>
+              state.selectedResults.includes(r.id)
+            ),
+            prompt: `${state.reportPrompt}. Provide comprehensive analysis.`,
+            platformModel: state.selectedModel,
+          }),
+        }).then((res) => res.json())
+      )
+
+      updateState({
+        report: response,
+        activeTab: 'report',
+      })
+    } catch (error) {
+      handleError(error, 'Report Generation Failed')
+    } finally {
+      updateStatus({ generatingReport: false })
+    }
+  }, [
+    state.reportPrompt,
+    state.selectedResults,
+    state.results,
+    state.selectedModel,
+    fetchContent,
+    handleError,
+    updateState,
+    updateStatus,
+  ])
+
+  // Memoized agent search handler
+  const handleAgentSearch = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!state.reportPrompt.trim()) {
+        toast({
+          title: 'Missing Information',
+          description: 'Please provide a research topic',
+          variant: 'destructive',
+        })
+        return
       }
 
-      // Update the report generation API call
-      const response = await fetch('/api/report', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          selectedResults: successfulResults,
-          sources: results
-            .filter((r) => selectedResults.includes(r.id))
-            .map((r) => ({
-              id: r.id,
-              url: r.url,
-              name: r.name,
-            })),
-          prompt: `${reportPrompt}. Provide a comprehensive analysis that synthesizes all relevant information from the provided sources.`,
-          platformModel: selectedModel,
-        }),
+      updateStatus({
+        agentStep: 'processing',
+        agentInsights: [],
+        searchQueries: [],
+      })
+      updateState({
+        error: null,
+        results: [],
+        selectedResults: [],
+        report: null,
       })
 
-      if (!response.ok) {
-        if (response.status === 429) {
+      try {
+        // Step 1: Get optimized query and research prompt
+        const { query, optimizedPrompt, explanation, suggestedStructure } =
+          await retryWithBackoff(async () => {
+            const response = await fetch('/api/optimize-research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt: state.reportPrompt }),
+            })
+            if (!response.ok) {
+              throw new Error(
+                `Failed to optimize research: ${response.status} ${response.statusText}`
+              )
+            }
+            return response.json()
+          })
+
+        updateStatus((prev: Status) => ({
+          ...prev,
+          searchQueries: [query],
+          agentInsights: [
+            ...prev.agentInsights,
+            `Research strategy: ${explanation}`,
+            `Suggested structure: ${suggestedStructure.join(' → ')}`,
+          ],
+        }))
+
+        // Step 2: Perform search with optimized query
+        updateStatus({ agentStep: 'searching' })
+        console.log('Performing search with optimized query:', query)
+        const searchResponse = await retryWithBackoff(async () => {
+          const response = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query,
+              timeFilter: state.timeFilter,
+              isTestQuery: query.toLowerCase() === 'test',
+            }),
+          })
+          if (!response.ok) {
+            const errorData = await response
+              .json()
+              .catch(() => ({ error: 'Could not parse error response' }))
+            console.error('Search failed:', {
+              status: response.status,
+              query,
+              error: errorData,
+            })
+            if (response.status === 429) {
+              throw new Error('Rate limit exceeded')
+            }
+            if (response.status === 403) {
+              throw new Error(
+                'Search quota exceeded. Please try again later or contact support.'
+              )
+            }
+            throw new Error('Search failed')
+          }
+          return response.json()
+        })
+
+        const searchResults = searchResponse.webPages?.value || []
+        if (searchResults.length === 0) {
           throw new Error(
-            'Rate limit exceeded. Please wait a moment before generating another report.'
+            'No search results found. Please try a different query.'
           )
         }
-        throw new Error('Failed to generate report. Please try again.')
+
+        // Process results
+        const timestamp = Date.now()
+        const allResults = searchResults.map(
+          (result: SearchResult, idx: number) => ({
+            ...result,
+            id: `search-${timestamp}-${idx}-${result.url}`,
+            score: 0,
+          })
+        )
+
+        // Step 3: Analyze and rank results
+        updateStatus({ agentStep: 'analyzing' })
+        const { rankings, analysis } = await retryWithBackoff(async () => {
+          const response = await fetch('/api/analyze-results', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: optimizedPrompt,
+              results: allResults.map((r: SearchResult) => ({
+                title: r.name,
+                snippet: r.snippet,
+                url: r.url,
+              })),
+              isTestQuery: query.toLowerCase() === 'test',
+            }),
+          })
+          if (!response.ok) {
+            throw new Error(
+              `Failed to analyze results: ${response.status} ${response.statusText}`
+            )
+          }
+          return response.json()
+        })
+
+        const rankedResults = allResults
+          .map((result: SearchResult) => ({
+            ...result,
+            score:
+              rankings.find((r: RankingResult) => r.url === result.url)
+                ?.score || 0,
+          }))
+          .sort(
+            (a: SearchResult, b: SearchResult) =>
+              (b.score || 0) - (a.score || 0)
+          )
+
+        if (rankedResults.every((r: SearchResult) => r.score === 0)) {
+          throw new Error(
+            'No relevant results found. Please try a different query.'
+          )
+        }
+
+        updateStatus((prev: Status) => ({
+          ...prev,
+          agentInsights: [
+            ...prev.agentInsights,
+            `Analysis: ${analysis}`,
+            `Found ${rankedResults.length} relevant results`,
+          ],
+        }))
+
+        // Select top results with diversity heuristic
+        const selectedUrls = new Set<string>()
+        const selected = rankedResults.filter((result: SearchResult) => {
+          if (selectedUrls.size >= CONFIG.search.maxSelectableResults)
+            return false
+          const domain = new URL(result.url).hostname
+          const hasSimilar = Array.from(selectedUrls).some(
+            (url) => new URL(url).hostname === domain
+          )
+          if (!hasSimilar && result.score && result.score > 0.5) {
+            selectedUrls.add(result.url)
+            return true
+          }
+          return false
+        })
+
+        if (selected.length === 0) {
+          throw new Error(
+            'Could not find enough diverse, high-quality sources. Please try a different query.'
+          )
+        }
+
+        updateState({
+          results: rankedResults,
+          selectedResults: selected.map((r: SearchResult) => r.id),
+          reportPrompt: optimizedPrompt,
+        })
+
+        updateStatus((prev: Status) => ({
+          ...prev,
+          agentInsights: [
+            ...prev.agentInsights,
+            `Selected ${selected.length} diverse sources from ${
+              new Set(
+                selected.map((s: SearchResult) => new URL(s.url).hostname)
+              ).size
+            } unique domains`,
+          ],
+        }))
+
+        // Step 4: Generate report with optimized prompt
+        updateStatus({ agentStep: 'generating' })
+        await generateReport()
+
+        updateStatus((prev: Status) => ({
+          ...prev,
+          agentInsights: [
+            ...prev.agentInsights,
+            `Report generated successfully`,
+          ],
+        }))
+      } catch (error) {
+        handleError(error, 'Agent Error')
+      } finally {
+        updateStatus({ agentStep: 'idle' })
       }
+    },
+    [
+      state.reportPrompt,
+      state.timeFilter,
+      generateReport,
+      handleError,
+      updateState,
+      updateStatus,
+    ]
+  )
 
-      const data = await response.json()
-      console.log('Report data:', data)
-      setReport(data)
-      setActiveTab('report')
-    } catch (error) {
-      console.error('Report generation failed:', error)
-      const errorMessage =
-        error instanceof Error ? error.message : 'Report generation failed'
-      setError(errorMessage)
-      toast({
-        title: 'Report Generation Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-    } finally {
-      setGeneratingReport(false)
-    }
-  }
+  // Memoized utility functions
+  const handleAddCustomUrl = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!state.newUrl.trim()) return
 
-  const handleDownload = async (format: 'pdf' | 'docx' | 'txt') => {
-    if (!report) return
+      try {
+        new URL(state.newUrl) // Validate URL format
+        if (!state.results.some((r) => r.url === state.newUrl)) {
+          const timestamp = Date.now()
+          const newResult: SearchResult = {
+            id: `custom-${timestamp}-${state.newUrl}`,
+            url: state.newUrl,
+            name: 'Custom URL',
+            snippet: 'Custom URL added by user',
+            isCustomUrl: true,
+          }
+          setState((prev: State) => ({
+            ...prev,
+            results: [newResult, ...prev.results],
+            newUrl: '',
+          }))
+        }
+      } catch {
+        handleError('Please enter a valid URL', 'Invalid URL')
+      }
+    },
+    [state.newUrl, state.results, handleError]
+  )
 
-    try {
-      const response = await fetch('/api/download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          report,
-          format,
-        }),
-      })
+  const handleRemoveResult = useCallback((resultId: string) => {
+    setState((prev: State) => ({
+      ...prev,
+      results: prev.results.filter((r) => r.id !== resultId),
+      selectedResults: prev.selectedResults.filter((id) => id !== resultId),
+    }))
+  }, [])
 
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `report.${format}`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (error) {
-      console.error('Download failed:', error)
-    }
-  }
+  const handleDownload = useCallback(
+    async (format: 'pdf' | 'docx' | 'txt') => {
+      if (!state.report) return
 
-  const handleSaveToKnowledgeBase = () => {
-    if (!report) return
-    const success = addReport(report, reportPrompt)
+      try {
+        const response = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            report: state.report,
+            format,
+          }),
+        })
+
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `report.${format}`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } catch (error) {
+        handleError(error, 'Download failed')
+      }
+    },
+    [state.report, handleError]
+  )
+
+  const handleSaveToKnowledgeBase = useCallback(() => {
+    if (!state.report) return
+    const success = addReport(state.report, state.reportPrompt)
     if (success) {
       toast({
         title: 'Saved to Knowledge Base',
         description: 'The report has been saved for future reference',
       })
     }
-  }
-
-  const handleAgentSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!reportPrompt.trim()) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please provide a research topic',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    try {
-      setAgentStep('processing')
-      setError(null)
-      setResults([])
-      setSelectedResults([])
-      setReport(null)
-      setAgentInsights([])
-
-      // Step 1: Get optimized query and research prompt
-      const { query, optimizedPrompt, explanation, suggestedStructure } =
-        await retryWithBackoff(async () => {
-          const response = await fetch('/api/optimize-research', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: reportPrompt }),
-          })
-          if (!response.ok) {
-            throw new Error(
-              `Failed to optimize research: ${response.status} ${response.statusText}`
-            )
-          }
-          return response.json()
-        })
-
-      setSearchQueries([query])
-      setAgentInsights((prev) => [
-        ...prev,
-        `Research strategy: ${explanation}`,
-        `Suggested structure: ${suggestedStructure.join(' → ')}`,
-      ])
-
-      // Step 2: Perform search with optimized query
-      setAgentStep('searching')
-      console.log('Performing search with optimized query:', query)
-      const searchResponse = await retryWithBackoff(async () => {
-        const response = await fetch('/api/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query,
-            timeFilter,
-            isTestQuery: query.toLowerCase() === 'test', // Add flag to indicate test query
-          }),
-        })
-        if (!response.ok) {
-          const errorData = await response
-            .json()
-            .catch(() => ({ error: 'Could not parse error response' }))
-          console.error('Search failed:', {
-            status: response.status,
-            query,
-            error: errorData,
-          })
-          if (response.status === 429) {
-            throw new Error('Rate limit exceeded')
-          }
-          if (response.status === 403) {
-            throw new Error(
-              'Search quota exceeded. Please try again later or contact support.'
-            )
-          }
-          throw new Error('Search failed')
-        }
-        return response.json()
-      })
-
-      const searchResults = searchResponse.webPages?.value || []
-      if (searchResults.length === 0) {
-        throw new Error(
-          'No search results found. Please try a different query.'
-        )
-      }
-
-      // Process results
-      const timestamp = Date.now()
-      const allResults = searchResults.map((result: any, idx: number) => ({
-        ...result,
-        id: `search-${timestamp}-${idx}-${result.url}`,
-        score: 0,
-      }))
-
-      // Step 3: Analyze and rank results
-      setAgentStep('analyzing')
-      const { rankings, analysis } = await retryWithBackoff(async () => {
-        const response = await fetch('/api/analyze-results', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: optimizedPrompt,
-            results: allResults.map((r: SearchResult) => ({
-              title: r.name,
-              snippet: r.snippet,
-              url: r.url,
-            })),
-            isTestQuery: query.toLowerCase() === 'test',
-          }),
-        })
-        if (!response.ok) {
-          throw new Error(
-            `Failed to analyze results: ${response.status} ${response.statusText}`
-          )
-        }
-        return response.json()
-      })
-
-      const rankedResults = allResults
-        .map((result: SearchResult) => ({
-          ...result,
-          score:
-            rankings.find((r: RankingResult) => r.url === result.url)?.score ||
-            0,
-        }))
-        .sort(
-          (a: SearchResult, b: SearchResult) => (b.score || 0) - (a.score || 0)
-        )
-
-      if (rankedResults.every((r: SearchResult) => r.score === 0)) {
-        throw new Error(
-          'No relevant results found. Please try a different query.'
-        )
-      }
-
-      setAgentInsights((prev) => [
-        ...prev,
-        `Analysis: ${analysis}`,
-        `Found ${rankedResults.length} relevant results`,
-      ])
-
-      // Select top results with diversity heuristic
-      const selectedUrls = new Set<string>()
-      const selected = rankedResults.filter((result: SearchResult) => {
-        if (selectedUrls.size >= CONFIG.search.maxSelectableResults)
-          return false
-        const domain = new URL(result.url).hostname
-        const hasSimilar = Array.from(selectedUrls).some(
-          (url) => new URL(url).hostname === domain
-        )
-        if (!hasSimilar && result.score && result.score > 0.5) {
-          selectedUrls.add(result.url)
-          return true
-        }
-        return false
-      })
-
-      if (selected.length === 0) {
-        throw new Error(
-          'Could not find enough diverse, high-quality sources. Please try a different query.'
-        )
-      }
-
-      setResults(rankedResults)
-      setSelectedResults(selected.map((r: SearchResult) => r.id))
-      setAgentInsights((prev) => [
-        ...prev,
-        `Selected ${selected.length} diverse sources from ${
-          new Set(selected.map((s: SearchResult) => new URL(s.url).hostname))
-            .size
-        } unique domains`,
-      ])
-
-      // Update the report prompt with the optimized version
-      setReportPrompt(optimizedPrompt)
-
-      // Step 4: Generate report with optimized prompt
-      setAgentStep('generating')
-      await retryWithBackoff(async () => handleGenerateReport())
-
-      setAgentInsights((prev) => [...prev, `Report generated successfully`])
-    } catch (error) {
-      console.error('Agent process failed:', error)
-      const errorMessage =
-        error instanceof Error ? error.message : 'Research failed'
-      setError(errorMessage)
-      toast({
-        title: 'Agent Error',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-    } finally {
-      setAgentStep('idle')
-    }
-  }
+  }, [state.report, state.reportPrompt, addReport, toast])
 
   return (
     <div className='min-h-screen bg-white p-4 sm:p-8'>
-      <KnowledgeBaseSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
+      <KnowledgeBaseSidebar
+        open={state.sidebarOpen}
+        onOpenChange={(open) => updateState({ sidebarOpen: open })}
+      />
       <main className='max-w-4xl mx-auto space-y-8'>
         <div className='mb-3'>
           <h1 className='mb-2 text-center text-gray-800 flex items-center justify-center gap-2'>
@@ -702,7 +690,7 @@ export default function Home() {
               <Button
                 variant='default'
                 size='sm'
-                onClick={() => setSidebarOpen(true)}
+                onClick={() => updateState({ sidebarOpen: true })}
                 className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
               >
                 <Brain className='h-4 w-4' />
@@ -728,10 +716,10 @@ export default function Home() {
               <div className='flex items-center space-x-2'>
                 <Checkbox
                   id='agent-mode'
-                  checked={isAgentMode}
+                  checked={state.isAgentMode}
                   className='w-4 h-4'
                   onCheckedChange={(checked) =>
-                    setIsAgentMode(checked as boolean)
+                    updateState({ isAgentMode: checked as boolean })
                   }
                 />
                 <label
@@ -743,7 +731,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-          {agentStep !== 'idle' && (
+          {state.status.agentStep !== 'idle' && (
             <div className='mb-4 p-4 bg-blue-50 rounded-lg'>
               <div className='flex items-center gap-3 mb-3'>
                 <Loader2 className='h-5 w-5 text-blue-600 animate-spin' />
@@ -753,16 +741,16 @@ export default function Home() {
               <div className='space-y-2'>
                 <div className='flex items-center gap-2 text-sm'>
                   <span className='font-medium'>Current Step:</span>
-                  <span className='capitalize'>{agentStep}</span>
+                  <span className='capitalize'>{state.status.agentStep}</span>
                 </div>
 
-                {agentInsights.length > 0 && (
+                {state.status.agentInsights.length > 0 && (
                   <Collapsible>
                     <CollapsibleTrigger className='text-sm text-blue-600 hover:underline flex items-center gap-1'>
                       Show Research Details <ChevronDown className='h-4 w-4' />
                     </CollapsibleTrigger>
                     <CollapsibleContent className='mt-2 space-y-2 text-sm text-gray-600'>
-                      {agentInsights.map((insight, idx) => (
+                      {state.status.agentInsights.map((insight, idx) => (
                         <div key={idx} className='flex gap-2'>
                           <span className='text-gray-400'>•</span>
                           {insight}
@@ -775,17 +763,17 @@ export default function Home() {
             </div>
           )}
           <form
-            onSubmit={isAgentMode ? handleAgentSearch : handleSearch}
+            onSubmit={state.isAgentMode ? handleAgentSearch : handleSearch}
             className='space-y-4'
           >
-            {!isAgentMode ? (
+            {!state.isAgentMode ? (
               <>
                 <div className='flex flex-col sm:flex-row gap-2'>
                   <div className='relative flex-1'>
                     <Input
                       type='text'
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      value={state.query}
+                      onChange={(e) => updateState({ query: e.target.value })}
                       placeholder='Enter your search query...'
                       className='pr-8'
                     />
@@ -793,7 +781,12 @@ export default function Home() {
                   </div>
 
                   <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
-                    <Select value={timeFilter} onValueChange={setTimeFilter}>
+                    <Select
+                      value={state.timeFilter}
+                      onValueChange={(value) =>
+                        updateState({ timeFilter: value })
+                      }
+                    >
                       <SelectTrigger className='w-full sm:w-[140px]'>
                         <SelectValue placeholder='Select time range' />
                       </SelectTrigger>
@@ -808,30 +801,30 @@ export default function Home() {
 
                     <Button
                       type='submit'
-                      disabled={loading}
+                      disabled={state.status.loading}
                       className='w-full sm:w-auto'
                     >
-                      {loading ? 'Searching...' : 'Search'}
+                      {state.status.loading ? 'Searching...' : 'Search'}
                     </Button>
                   </div>
                 </div>
                 <div className='flex gap-2'>
                   <Input
                     type='url'
-                    value={newUrl}
-                    onChange={(e) => setNewUrl(e.target.value)}
+                    value={state.newUrl}
+                    onChange={(e) => updateState({ newUrl: e.target.value })}
                     placeholder='Add custom URL...'
                     className='flex-1'
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddCustomUrl(e);
+                        e.preventDefault()
+                        handleAddCustomUrl(e)
                       }
                     }}
                   />
-                  <Button 
+                  <Button
                     type='button'
-                    variant='outline' 
+                    variant='outline'
                     size='icon'
                     onClick={handleAddCustomUrl}
                   >
@@ -843,8 +836,10 @@ export default function Home() {
               <div className='space-y-4 sm:space-y-6'>
                 <div className='relative flex-1'>
                   <Input
-                    value={reportPrompt}
-                    onChange={(e) => setReportPrompt(e.target.value)}
+                    value={state.reportPrompt}
+                    onChange={(e) =>
+                      updateState({ reportPrompt: e.target.value })
+                    }
                     placeholder="What would you like to research? (e.g., 'Tesla Q4 2024 financial performance and market impact')"
                     className='pr-8 text-lg py-6'
                   />
@@ -853,10 +848,10 @@ export default function Home() {
                 <div className='w-full'>
                   <Button
                     type='submit'
-                    disabled={agentStep !== 'idle'}
+                    disabled={state.status.agentStep !== 'idle'}
                     className='w-full bg-blue-600 hover:bg-blue-700 text-white'
                   >
-                    {agentStep !== 'idle' ? (
+                    {state.status.agentStep !== 'idle' ? (
                       <span className='flex items-center gap-2'>
                         <Loader2 className='h-4 w-4 animate-spin' />
                         {
@@ -865,7 +860,7 @@ export default function Home() {
                             searching: 'Searching Web...',
                             analyzing: 'Analyzing Results...',
                             generating: 'Writing Report...',
-                          }[agentStep]
+                          }[state.status.agentStep]
                         }
                       </span>
                     ) : (
@@ -880,45 +875,57 @@ export default function Home() {
 
         <Separator className='my-8' />
 
-        {!isAgentMode && (
+        {!state.isAgentMode && (
           <div className='mb-6'>
             {/* Remove this section since we moved it above */}
           </div>
         )}
 
-        {error && (
+        {state.error && (
           <div className='p-4 mb-4 bg-red-50 border border-red-200 rounded-md text-red-600 text-center'>
-            {error}
+            {state.error}
           </div>
         )}
 
-        {results.length > 0 && (
+        {state.results.length > 0 && (
           <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
+            value={state.activeTab}
+            onValueChange={(value) => updateState({ activeTab: value })}
             className='w-full'
           >
             <div className='mb-6 space-y-4'>
-              {selectedResults.length > 0 && (
+              {state.selectedResults.length > 0 && (
                 <div className='flex flex-col sm:flex-row gap-2'>
-                  {!isAgentMode && (
+                  {!state.isAgentMode && (
                     <div className='relative flex-1'>
                       <Input
-                        value={reportPrompt}
-                        onChange={(e) => setReportPrompt(e.target.value)}
+                        value={state.reportPrompt}
+                        onChange={(e) =>
+                          updateState({ reportPrompt: e.target.value })
+                        }
                         placeholder="What would you like to know about these sources? (e.g., 'Compare and analyze the key points')"
                         className='pr-8'
                       />
                       <FileText className='absolute right-2 top-2.5 h-5 w-5 text-gray-400' />
                     </div>
                   )}
-                  <div className={`flex flex-col sm:flex-row gap-2 ${isAgentMode ? 'w-full' : ''}`}>
+                  <div
+                    className={`flex flex-col sm:flex-row gap-2 ${
+                      state.isAgentMode ? 'w-full' : ''
+                    }`}
+                  >
                     <Select
-                      value={selectedModel}
-                      onValueChange={setSelectedModel}
+                      value={state.selectedModel}
+                      onValueChange={(value) =>
+                        updateState({ selectedModel: value })
+                      }
                       disabled={platformModels.length === 0}
                     >
-                      <SelectTrigger className={`w-full ${!isAgentMode ? 'sm:w-[200px]' : ''}`}>
+                      <SelectTrigger
+                        className={`w-full ${
+                          !state.isAgentMode ? 'sm:w-[200px]' : ''
+                        }`}
+                      >
                         <SelectValue
                           placeholder={
                             platformModels.length === 0
@@ -945,11 +952,16 @@ export default function Home() {
                       </SelectContent>
                     </Select>
                     <Button
-                      onClick={handleGenerateReport}
-                      disabled={!reportPrompt.trim() || generatingReport}
-                      className={`w-full ${!isAgentMode ? 'sm:w-auto whitespace-nowrap' : ''}`}
+                      onClick={generateReport}
+                      disabled={
+                        !state.reportPrompt.trim() ||
+                        state.status.generatingReport
+                      }
+                      className={`w-full ${
+                        !state.isAgentMode ? 'sm:w-auto whitespace-nowrap' : ''
+                      }`}
                     >
-                      {generatingReport ? (
+                      {state.status.generatingReport ? (
                         <span className='flex items-center gap-2'>
                           <Loader2 className='h-4 w-4 animate-spin' />
                           Generating...
@@ -963,27 +975,28 @@ export default function Home() {
               )}
               <div className='text-sm text-gray-600 text-center sm:text-left space-y-1'>
                 <p>
-                  {selectedResults.length === 0
+                  {state.selectedResults.length === 0
                     ? 'Select up to 3 results to generate a report'
-                    : `${selectedResults.length} of ${MAX_SELECTIONS} results selected`}
+                    : `${state.selectedResults.length} of ${MAX_SELECTIONS} results selected`}
                 </p>
-                {generatingReport && (
+                {state.status.generatingReport && (
                   <p>
-                    {fetchStatus.successful} fetched, {fetchStatus.fallback}{' '}
-                    failed (of {fetchStatus.total})
+                    {state.status.fetchStatus.successful} fetched,{' '}
+                    {state.status.fetchStatus.fallback} failed (of{' '}
+                    {state.status.fetchStatus.total})
                   </p>
                 )}
               </div>
               <TabsList className='grid w-full grid-cols-2 mb-4'>
                 <TabsTrigger value='search'>Search Results</TabsTrigger>
-                <TabsTrigger value='report' disabled={!report}>
+                <TabsTrigger value='report' disabled={!state.report}>
                   Report
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value='search' className='space-y-4'>
-                {!isAgentMode &&
-                  results
+                {!state.isAgentMode &&
+                  state.results
                     .filter((r) => r.isCustomUrl)
                     .map((result) => (
                       <Card
@@ -993,13 +1006,15 @@ export default function Home() {
                         <CardContent className='p-4 flex gap-4'>
                           <div className='pt-1'>
                             <Checkbox
-                              checked={selectedResults.includes(result.id)}
+                              checked={state.selectedResults.includes(
+                                result.id
+                              )}
                               onCheckedChange={() =>
                                 handleResultSelect(result.id)
                               }
                               disabled={
-                                !selectedResults.includes(result.id) &&
-                                selectedResults.length >= MAX_SELECTIONS
+                                !state.selectedResults.includes(result.id) &&
+                                state.selectedResults.length >= MAX_SELECTIONS
                               }
                             />
                           </div>
@@ -1035,20 +1050,20 @@ export default function Home() {
                       </Card>
                     ))}
 
-                {results
+                {state.results
                   .filter((r) => !r.isCustomUrl)
                   .map((result) => (
                     <Card key={result.id} className='overflow-hidden'>
                       <CardContent className='p-4 flex gap-4'>
                         <div className='pt-1'>
                           <Checkbox
-                            checked={selectedResults.includes(result.id)}
+                            checked={state.selectedResults.includes(result.id)}
                             onCheckedChange={() =>
                               handleResultSelect(result.id)
                             }
                             disabled={
-                              !selectedResults.includes(result.id) &&
-                              selectedResults.length >= MAX_SELECTIONS
+                              !state.selectedResults.includes(result.id) &&
+                              state.selectedResults.length >= MAX_SELECTIONS
                             }
                           />
                         </div>
@@ -1075,32 +1090,34 @@ export default function Home() {
               </TabsContent>
 
               <TabsContent value='report'>
-                {report && (
+                {state.report && (
                   <Card>
                     <CardContent className='p-6 space-y-6'>
                       <Collapsible
-                        open={isSourcesOpen}
-                        onOpenChange={setIsSourcesOpen}
+                        open={state.isSourcesOpen}
+                        onOpenChange={(open) =>
+                          updateState({ isSourcesOpen: open })
+                        }
                         className='w-full border rounded-lg p-2'
                       >
                         <CollapsibleTrigger className='flex items-center justify-between w-full'>
                           <span className='text-sm font-medium'>Overview</span>
                           <ChevronDown
                             className={`h-4 w-4 transition-transform ${
-                              isSourcesOpen ? 'transform rotate-180' : ''
+                              state.isSourcesOpen ? 'transform rotate-180' : ''
                             }`}
                           />
                         </CollapsibleTrigger>
                         <CollapsibleContent className='space-y-4 mt-2'>
                           <div className='text-sm text-gray-600 bg-gray-50 p-3 rounded'>
                             <p className='font-medium text-gray-700'>
-                              {fetchStatus.successful} of{' '}
-                              {report.sources.length} sources fetched
+                              {state.status.fetchStatus.successful} of{' '}
+                              {state.report.sources.length} sources fetched
                               successfully
                             </p>
                           </div>
                           <div className='space-y-2'>
-                            {report.sources.map((source) => (
+                            {state.report.sources.map((source) => (
                               <div key={source.id} className='text-gray-600'>
                                 <div className='flex items-center gap-2'>
                                   <a
@@ -1113,14 +1130,16 @@ export default function Home() {
                                   </a>
                                   <span
                                     className={`text-xs px-1.5 py-0.5 rounded ${
-                                      fetchStatus.sourceStatuses[source.url] ===
-                                      'fetched'
+                                      state.status.fetchStatus.sourceStatuses[
+                                        source.url
+                                      ] === 'fetched'
                                         ? 'bg-green-100 text-green-700'
                                         : 'bg-yellow-50 text-yellow-600'
                                     }`}
                                   >
-                                    {fetchStatus.sourceStatuses[source.url] ===
-                                    'fetched'
+                                    {state.status.fetchStatus.sourceStatuses[
+                                      source.url
+                                    ] === 'fetched'
                                       ? 'fetched'
                                       : 'preview'}
                                   </span>
@@ -1135,7 +1154,7 @@ export default function Home() {
                       </Collapsible>
                       <div className='flex flex-col-reverse sm:flex-row sm:justify-between sm:items-start gap-4'>
                         <h2 className='text-2xl font-bold text-gray-800 text-center sm:text-left'>
-                          {report.title}
+                          {state.report.title}
                         </h2>
                         <div className='flex w-full sm:w-auto gap-2'>
                           <Button
@@ -1178,8 +1197,10 @@ export default function Home() {
                           </DropdownMenu>
                         </div>
                       </div>
-                      <p className='text-lg text-gray-700'>{report.summary}</p>
-                      {report.sections.map((section, index) => (
+                      <p className='text-lg text-gray-700'>
+                        {state.report.summary}
+                      </p>
+                      {state.report.sections.map((section, index) => (
                         <div key={index} className='space-y-2 border-t pt-4'>
                           <h3 className='text-xl font-semibold text-gray-700'>
                             {section.title}
