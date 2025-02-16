@@ -105,11 +105,22 @@ export async function POST(request: Request) {
 
       if (!googleResponse.ok) {
         const errorData = await googleResponse.json().catch(() => null)
+
+        // Check for quota exceeded error
+        if (errorData?.error?.message?.includes('Quota exceeded')) {
+          return NextResponse.json(
+            {
+              error:
+                'Daily search limit reached. Please try again tomorrow or contact support for increased limits.',
+            },
+            { status: 429 }
+          )
+        }
+
         return NextResponse.json(
           {
             error:
-              errorData?.error?.message ||
-              `Google Search API returned error ${googleResponse.status}`,
+              'An error occurred while fetching search results. Please try again later.',
           },
           { status: googleResponse.status }
         )
@@ -171,6 +182,20 @@ export async function POST(request: Request) {
 
       if (!bingResponse.ok) {
         if (bingResponse.status === 403) {
+          console.error('Bing Search API 403 Error:', {
+            status: bingResponse.status,
+            headers: Object.fromEntries(bingResponse.headers.entries()),
+            query,
+            timeFilter,
+          })
+
+          try {
+            const errorBody = await bingResponse.json()
+            console.error('Bing Error Response:', errorBody)
+          } catch (e) {
+            console.error('Could not parse Bing error response')
+          }
+
           return NextResponse.json(
             {
               error:
