@@ -37,6 +37,12 @@ const safetySettings = [
   },
 ]
 
+export const geminiFlashLiteModel = genAI.getGenerativeModel({
+  model: 'gemini-2.0-flash-lite-preview-02-05',
+  safetySettings,
+  generationConfig: generationJsonConfig,
+})
+
 export const geminiFlashModel = genAI.getGenerativeModel({
   model: 'gemini-2.0-flash',
   safetySettings,
