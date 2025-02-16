@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       query,
       timeFilter = 'all',
       provider = CONFIG.search.provider,
+      isTestQuery = false
     } = body
 
     if (!query) {
@@ -53,6 +54,34 @@ export async function POST(request: Request) {
         { error: 'Query parameter is required' },
         { status: 400 }
       )
+    }
+
+    // Return dummy results for test queries
+    if (query.toLowerCase() === 'test' || isTestQuery) {
+      return NextResponse.json({
+        webPages: {
+          value: [
+            {
+              id: 'test-1',
+              url: 'https://example.com/test-1',
+              name: 'Test Result 1',
+              snippet: 'This is a test search result for testing purposes. It contains some sample text about research and analysis.',
+            },
+            {
+              id: 'test-2',
+              url: 'https://example.com/test-2',
+              name: 'Test Result 2',
+              snippet: 'Another test result with different content. This one discusses methodology and data collection.',
+            },
+            {
+              id: 'test-3',
+              url: 'https://example.com/test-3',
+              name: 'Test Result 3',
+              snippet: 'A third test result focusing on academic research and scientific papers.',
+            }
+          ]
+        }
+      })
     }
 
     // Only check rate limit if enabled
