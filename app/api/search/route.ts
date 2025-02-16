@@ -193,7 +193,7 @@ export async function POST(request: Request) {
             const errorBody = await bingResponse.json()
             console.error('Bing Error Response:', errorBody)
           } catch (e) {
-            console.error('Could not parse Bing error response')
+            console.error('Could not parse Bing error response', e)
           }
 
           return NextResponse.json(
