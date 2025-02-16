@@ -1,3 +1,16 @@
+export type Report = {
+  title: string
+  summary: string
+  sections: {
+    title: string
+    content: string
+  }[]
+  sources: {
+    id: string
+    url: string
+    name: string
+  }[]
+}
 export interface Article {
   url: string
   title: string
