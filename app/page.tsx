@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -32,7 +32,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type {
-  Report,
   SearchResult,
   RankingResult,
   PlatformModel,
@@ -133,6 +132,9 @@ export default function Home() {
   const { addReport } = useKnowledgeBase()
   const { toast } = useToast()
 
+  // Add form ref
+  const formRef = useRef<HTMLFormElement>(null)
+
   // Memoized state update functions
   const updateState = useCallback((updates: Partial<State>) => {
     setState((prev) => ({ ...prev, ...updates }))
@@ -186,6 +188,8 @@ export default function Home() {
         return {
           ...prev,
           selectedResults: prev.selectedResults.filter((id) => id !== resultId),
+          reportPrompt:
+            prev.selectedResults.length <= 1 ? '' : prev.reportPrompt,
         }
       }
       if (prev.selectedResults.length >= MAX_SELECTIONS) return prev
@@ -200,7 +204,7 @@ export default function Home() {
       ) {
         const result = prev.results.find((r) => r.id === resultId)
         if (result) {
-          newReportPrompt = `Analyze and summarize information about ${result.name}`
+          newReportPrompt = `Analyze and summarize the key points from ${result.name}`
         }
       }
 
@@ -217,6 +221,93 @@ export default function Home() {
     async (e: React.FormEvent) => {
       e.preventDefault()
       if (!state.query.trim()) return
+
+      const isGeneratingReport =
+        state.selectedResults.length > 0 && !state.isAgentMode
+
+      if (isGeneratingReport) {
+        updateStatus({ generatingReport: true })
+        updateState({ error: null })
+        const initialFetchStatus: Status['fetchStatus'] = {
+          total: state.selectedResults.length,
+          successful: 0,
+          fallback: 0,
+          sourceStatuses: {},
+        }
+        updateStatus({ fetchStatus: initialFetchStatus })
+
+        try {
+          const contentResults = await Promise.all(
+            state.results
+              .filter((r) => state.selectedResults.includes(r.id))
+              .map(async (article) => {
+                try {
+                  const { content } = await fetchContent(article.url)
+                  if (content) {
+                    updateStatus((prev: Status) => ({
+                      ...prev,
+                      fetchStatus: {
+                        ...prev.fetchStatus,
+                        successful: prev.fetchStatus.successful + 1,
+                        sourceStatuses: {
+                          ...prev.fetchStatus.sourceStatuses,
+                          [article.url]: 'fetched' as const,
+                        },
+                      },
+                    }))
+                    return { url: article.url, title: article.name, content }
+                  }
+                } catch (error) {
+                  if (error instanceof Error && error.message.includes('429'))
+                    throw error
+                }
+                updateStatus((prev: Status) => ({
+                  ...prev,
+                  fetchStatus: {
+                    ...prev.fetchStatus,
+                    fallback: prev.fetchStatus.fallback + 1,
+                    sourceStatuses: {
+                      ...prev.fetchStatus.sourceStatuses,
+                      [article.url]: 'preview' as const,
+                    },
+                  },
+                }))
+                return {
+                  url: article.url,
+                  title: article.name,
+                  content: article.snippet,
+                }
+              })
+          )
+
+          const response = await retryWithBackoff(() =>
+            fetch('/api/report', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                selectedResults: contentResults.filter((r) =>
+                  r.content?.trim()
+                ),
+                sources: state.results.filter((r) =>
+                  state.selectedResults.includes(r.id)
+                ),
+                prompt: `${state.query}. Provide comprehensive analysis.`,
+                platformModel: state.selectedModel,
+              }),
+            }).then((res) => res.json())
+          )
+
+          updateState({
+            report: response,
+            activeTab: 'report',
+          })
+        } catch (error) {
+          handleError(error, 'Report Generation Failed')
+        } finally {
+          updateStatus({ generatingReport: false })
+        }
+        return
+      }
 
       updateStatus({ loading: true })
       updateState({ error: null, reportPrompt: '' })
@@ -263,104 +354,30 @@ export default function Home() {
       state.query,
       state.timeFilter,
       state.selectedResults,
+      state.selectedModel,
+      state.results,
+      state.isAgentMode,
+      fetchContent,
       handleError,
       updateStatus,
       updateState,
     ]
   )
 
-  // Memoized report generation handler with proper type handling
-  const generateReport = useCallback(async () => {
+  // Modify generateReport to use form submission
+  const generateReport = useCallback(() => {
     if (!state.reportPrompt || state.selectedResults.length === 0) return
 
-    updateStatus({ generatingReport: true })
-    updateState({ error: null })
-    const initialFetchStatus: Status['fetchStatus'] = {
-      total: state.selectedResults.length,
-      successful: 0,
-      fallback: 0,
-      sourceStatuses: {},
-    }
-    updateStatus({ fetchStatus: initialFetchStatus })
+    // Update query with report prompt before submitting
+    updateState({ query: state.reportPrompt })
 
-    try {
-      const contentResults = await Promise.all(
-        state.results
-          .filter((r) => state.selectedResults.includes(r.id))
-          .map(async (article) => {
-            try {
-              const { content } = await fetchContent(article.url)
-              if (content) {
-                updateStatus((prev: Status) => ({
-                  ...prev,
-                  fetchStatus: {
-                    ...prev.fetchStatus,
-                    successful: prev.fetchStatus.successful + 1,
-                    sourceStatuses: {
-                      ...prev.fetchStatus.sourceStatuses,
-                      [article.url]: 'fetched' as const,
-                    },
-                  },
-                }))
-                return { url: article.url, title: article.name, content }
-              }
-            } catch (error) {
-              if (error instanceof Error && error.message.includes('429'))
-                throw error
-            }
-            updateStatus((prev: Status) => ({
-              ...prev,
-              fetchStatus: {
-                ...prev.fetchStatus,
-                fallback: prev.fetchStatus.fallback + 1,
-                sourceStatuses: {
-                  ...prev.fetchStatus.sourceStatuses,
-                  [article.url]: 'preview' as const,
-                },
-              },
-            }))
-            return {
-              url: article.url,
-              title: article.name,
-              content: article.snippet,
-            }
-          })
+    // Submit form programmatically
+    if (formRef.current) {
+      formRef.current.dispatchEvent(
+        new Event('submit', { cancelable: true, bubbles: true })
       )
-
-      const response = await retryWithBackoff(() =>
-        fetch('/api/report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            selectedResults: contentResults.filter((r) => r.content?.trim()),
-            sources: state.results.filter((r) =>
-              state.selectedResults.includes(r.id)
-            ),
-            prompt: `${state.reportPrompt}. Provide comprehensive analysis.`,
-            platformModel: state.selectedModel,
-          }),
-        }).then((res) => res.json())
-      )
-
-      updateState({
-        report: response,
-        activeTab: 'report',
-      })
-    } catch (error) {
-      handleError(error, 'Report Generation Failed')
-    } finally {
-      updateStatus({ generatingReport: false })
     }
-  }, [
-    state.reportPrompt,
-    state.selectedResults,
-    state.results,
-    state.selectedModel,
-    fetchContent,
-    handleError,
-    updateState,
-    updateStatus,
-  ])
+  }, [state.reportPrompt, state.selectedResults.length, updateState])
 
   // Memoized agent search handler
   const handleAgentSearch = useCallback(
@@ -542,7 +559,6 @@ export default function Home() {
         updateState({
           results: rankedResults,
           selectedResults: selected.map((r: SearchResult) => r.id),
-          reportPrompt: optimizedPrompt,
         })
 
         updateStatus((prev: Status) => ({
@@ -557,9 +573,74 @@ export default function Home() {
           ],
         }))
 
-        // Step 4: Generate report with optimized prompt
+        // Step 4: Generate report
         updateStatus({ agentStep: 'generating' })
-        await generateReport()
+        const initialFetchStatus: Status['fetchStatus'] = {
+          total: selected.length,
+          successful: 0,
+          fallback: 0,
+          sourceStatuses: {},
+        }
+        updateStatus({ fetchStatus: initialFetchStatus })
+
+        const contentResults = await Promise.all(
+          selected.map(async (article: SearchResult) => {
+            try {
+              const { content } = await fetchContent(article.url)
+              if (content) {
+                updateStatus((prev: Status) => ({
+                  ...prev,
+                  fetchStatus: {
+                    ...prev.fetchStatus,
+                    successful: prev.fetchStatus.successful + 1,
+                    sourceStatuses: {
+                      ...prev.fetchStatus.sourceStatuses,
+                      [article.url]: 'fetched' as const,
+                    },
+                  },
+                }))
+                return { url: article.url, title: article.name, content }
+              }
+            } catch (error) {
+              if (error instanceof Error && error.message.includes('429'))
+                throw error
+            }
+            updateStatus((prev: Status) => ({
+              ...prev,
+              fetchStatus: {
+                ...prev.fetchStatus,
+                fallback: prev.fetchStatus.fallback + 1,
+                sourceStatuses: {
+                  ...prev.fetchStatus.sourceStatuses,
+                  [article.url]: 'preview' as const,
+                },
+              },
+            }))
+            return {
+              url: article.url,
+              title: article.name,
+              content: article.snippet,
+            }
+          })
+        )
+
+        const reportResponse = await retryWithBackoff(() =>
+          fetch('/api/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              selectedResults: contentResults.filter((r) => r.content?.trim()),
+              sources: selected,
+              prompt: `${optimizedPrompt}. Provide comprehensive analysis.`,
+              platformModel: state.selectedModel,
+            }),
+          }).then((res) => res.json())
+        )
+
+        updateState({
+          report: reportResponse,
+          activeTab: 'report',
+        })
 
         updateStatus((prev: Status) => ({
           ...prev,
@@ -567,11 +648,10 @@ export default function Home() {
             ...prev.agentInsights,
             `Report generated successfully`,
           ],
+          agentStep: 'idle',
         }))
       } catch (error) {
         handleError(error, 'Agent Error')
-      } finally {
-        updateStatus({ agentStep: 'idle' })
       }
     },
     [
@@ -763,6 +843,7 @@ export default function Home() {
             </div>
           )}
           <form
+            ref={formRef}
             onSubmit={state.isAgentMode ? handleAgentSearch : handleSearch}
             className='space-y-4'
           >
@@ -794,6 +875,40 @@ export default function Home() {
                         {timeFilters.map((filter) => (
                           <SelectItem key={filter.value} value={filter.value}>
                             {filter.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select
+                      value={state.selectedModel}
+                      onValueChange={(value) =>
+                        updateState({ selectedModel: value })
+                      }
+                      disabled={platformModels.length === 0}
+                    >
+                      <SelectTrigger className='w-full sm:w-[200px]'>
+                        <SelectValue
+                          placeholder={
+                            platformModels.length === 0
+                              ? 'No models available'
+                              : 'Select model'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {platformModels.map((model) => (
+                          <SelectItem
+                            key={model.value}
+                            value={model.value}
+                            disabled={model.disabled}
+                            className={
+                              model.disabled
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : ''
+                            }
+                          >
+                            {model.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -845,11 +960,44 @@ export default function Home() {
                   />
                   <Brain className='absolute right-4 top-4 h-5 w-5 text-gray-400' />
                 </div>
-                <div className='w-full'>
+                <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                  <Select
+                    value={state.selectedModel}
+                    onValueChange={(value) =>
+                      updateState({ selectedModel: value })
+                    }
+                    disabled={platformModels.length === 0}
+                  >
+                    <SelectTrigger className='w-full sm:w-[200px]'>
+                      <SelectValue
+                        placeholder={
+                          platformModels.length === 0
+                            ? 'No models available'
+                            : 'Select model'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {platformModels.map((model) => (
+                        <SelectItem
+                          key={model.value}
+                          value={model.value}
+                          disabled={model.disabled}
+                          className={
+                            model.disabled
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : ''
+                          }
+                        >
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     type='submit'
                     disabled={state.status.agentStep !== 'idle'}
-                    className='w-full bg-blue-600 hover:bg-blue-700 text-white'
+                    className='w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white'
                   >
                     {state.status.agentStep !== 'idle' ? (
                       <span className='flex items-center gap-2'>
@@ -875,12 +1023,6 @@ export default function Home() {
 
         <Separator className='my-8' />
 
-        {!state.isAgentMode && (
-          <div className='mb-6'>
-            {/* Remove this section since we moved it above */}
-          </div>
-        )}
-
         {state.error && (
           <div className='p-4 mb-4 bg-red-50 border border-red-200 rounded-md text-red-600 text-center'>
             {state.error}
@@ -894,90 +1036,47 @@ export default function Home() {
             className='w-full'
           >
             <div className='mb-6 space-y-4'>
-              {state.selectedResults.length > 0 && (
+              {state.selectedResults.length > 0 && !state.isAgentMode && (
                 <div className='flex flex-col sm:flex-row gap-2'>
-                  {!state.isAgentMode && (
-                    <div className='relative flex-1'>
-                      <Input
-                        value={state.reportPrompt}
-                        onChange={(e) =>
-                          updateState({ reportPrompt: e.target.value })
-                        }
-                        placeholder="What would you like to know about these sources? (e.g., 'Compare and analyze the key points')"
-                        className='pr-8'
-                      />
-                      <FileText className='absolute right-2 top-2.5 h-5 w-5 text-gray-400' />
-                    </div>
-                  )}
-                  <div
-                    className={`flex flex-col sm:flex-row gap-2 ${
-                      state.isAgentMode ? 'w-full' : ''
-                    }`}
-                  >
-                    <Select
-                      value={state.selectedModel}
-                      onValueChange={(value) =>
-                        updateState({ selectedModel: value })
+                  <div className='relative flex-1'>
+                    <Input
+                      value={state.reportPrompt}
+                      onChange={(e) =>
+                        updateState({ reportPrompt: e.target.value })
                       }
-                      disabled={platformModels.length === 0}
-                    >
-                      <SelectTrigger
-                        className={`w-full ${
-                          !state.isAgentMode ? 'sm:w-[200px]' : ''
-                        }`}
-                      >
-                        <SelectValue
-                          placeholder={
-                            platformModels.length === 0
-                              ? 'No models available'
-                              : 'Select model'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {platformModels.map((model) => (
-                          <SelectItem
-                            key={model.value}
-                            value={model.value}
-                            disabled={model.disabled}
-                            className={
-                              model.disabled
-                                ? 'text-gray-400 cursor-not-allowed'
-                                : ''
-                            }
-                          >
-                            {model.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      onClick={generateReport}
-                      disabled={
-                        !state.reportPrompt.trim() ||
-                        state.status.generatingReport
-                      }
-                      className={`w-full ${
-                        !state.isAgentMode ? 'sm:w-auto whitespace-nowrap' : ''
-                      }`}
-                    >
-                      {state.status.generatingReport ? (
-                        <span className='flex items-center gap-2'>
-                          <Loader2 className='h-4 w-4 animate-spin' />
-                          Generating...
-                        </span>
-                      ) : (
-                        'Generate Report'
-                      )}
-                    </Button>
+                      placeholder="What would you like to know about these sources? (e.g., 'Compare and analyze the key points')"
+                      className='pr-8'
+                    />
+                    <FileText className='absolute right-2 top-2.5 h-5 w-5 text-gray-400' />
                   </div>
+                  <Button
+                    onClick={generateReport}
+                    disabled={
+                      !state.reportPrompt.trim() ||
+                      state.status.generatingReport ||
+                      !state.selectedModel
+                    }
+                    type='button'
+                    className='w-full sm:w-auto whitespace-nowrap'
+                  >
+                    {state.status.generatingReport ? (
+                      <span className='flex items-center gap-2'>
+                        <Loader2 className='h-4 w-4 animate-spin' />
+                        Generating...
+                      </span>
+                    ) : (
+                      'Generate Report'
+                    )}
+                  </Button>
                 </div>
               )}
               <div className='text-sm text-gray-600 text-center sm:text-left space-y-1'>
                 <p>
                   {state.selectedResults.length === 0
                     ? 'Select up to 3 results to generate a report'
-                    : `${state.selectedResults.length} of ${MAX_SELECTIONS} results selected`}
+                    : state.selectedModel
+                    ? `${state.selectedResults.length} of ${MAX_SELECTIONS} results selected`
+                    : 'Please select a model above to generate a report'}
                 </p>
                 {state.status.generatingReport && (
                   <p>
@@ -1112,12 +1211,12 @@ export default function Home() {
                           <div className='text-sm text-gray-600 bg-gray-50 p-3 rounded'>
                             <p className='font-medium text-gray-700'>
                               {state.status.fetchStatus.successful} of{' '}
-                              {state.report.sources.length} sources fetched
-                              successfully
+                              {state.report?.sources?.length || 0} sources
+                              fetched successfully
                             </p>
                           </div>
                           <div className='space-y-2'>
-                            {state.report.sources.map((source) => (
+                            {state.report?.sources?.map((source) => (
                               <div key={source.id} className='text-gray-600'>
                                 <div className='flex items-center gap-2'>
                                   <a
@@ -1154,7 +1253,7 @@ export default function Home() {
                       </Collapsible>
                       <div className='flex flex-col-reverse sm:flex-row sm:justify-between sm:items-start gap-4'>
                         <h2 className='text-2xl font-bold text-gray-800 text-center sm:text-left'>
-                          {state.report.title}
+                          {state.report?.title}
                         </h2>
                         <div className='flex w-full sm:w-auto gap-2'>
                           <Button
@@ -1198,9 +1297,9 @@ export default function Home() {
                         </div>
                       </div>
                       <p className='text-lg text-gray-700'>
-                        {state.report.summary}
+                        {state.report?.summary}
                       </p>
-                      {state.report.sections.map((section, index) => (
+                      {state.report?.sections?.map((section, index) => (
                         <div key={index} className='space-y-2 border-t pt-4'>
                           <h3 className='text-xl font-semibold text-gray-700'>
                             {section.title}
