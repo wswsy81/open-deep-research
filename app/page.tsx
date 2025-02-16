@@ -918,57 +918,59 @@ export default function Home() {
                   </div>
 
                   <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
-                    <Select
-                      value={state.timeFilter}
-                      onValueChange={(value) =>
-                        updateState({ timeFilter: value })
-                      }
-                    >
-                      <SelectTrigger className='w-full sm:w-[140px]'>
-                        <SelectValue placeholder='Select time range' />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeFilters.map((filter) => (
-                          <SelectItem key={filter.value} value={filter.value}>
-                            {filter.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className='flex gap-2 w-full sm:w-auto'>
+                      <Select
+                        value={state.timeFilter}
+                        onValueChange={(value) =>
+                          updateState({ timeFilter: value })
+                        }
+                      >
+                        <SelectTrigger className='flex-1 sm:flex-initial sm:w-[140px]'>
+                          <SelectValue placeholder='Select time range' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeFilters.map((filter) => (
+                            <SelectItem key={filter.value} value={filter.value}>
+                              {filter.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                    <Select
-                      value={state.selectedModel}
-                      onValueChange={(value) =>
-                        updateState({ selectedModel: value })
-                      }
-                      disabled={platformModels.length === 0}
-                    >
-                      <SelectTrigger className='w-full sm:w-[200px]'>
-                        <SelectValue
-                          placeholder={
-                            platformModels.length === 0
-                              ? 'No models available'
-                              : 'Select model'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {platformModels.map((model) => (
-                          <SelectItem
-                            key={model.value}
-                            value={model.value}
-                            disabled={model.disabled}
-                            className={
-                              model.disabled
-                                ? 'text-gray-400 cursor-not-allowed'
-                                : ''
+                      <Select
+                        value={state.selectedModel}
+                        onValueChange={(value) =>
+                          updateState({ selectedModel: value })
+                        }
+                        disabled={platformModels.length === 0}
+                      >
+                        <SelectTrigger className='flex-1 sm:flex-initial sm:w-[200px]'>
+                          <SelectValue
+                            placeholder={
+                              platformModels.length === 0
+                                ? 'No models available'
+                                : 'Select model'
                             }
-                          >
-                            {model.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {platformModels.map((model) => (
+                            <SelectItem
+                              key={model.value}
+                              value={model.value}
+                              disabled={model.disabled}
+                              className={
+                                model.disabled
+                                  ? 'text-gray-400 cursor-not-allowed'
+                                  : ''
+                              }
+                            >
+                              {model.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                     <Button
                       type='submit'
