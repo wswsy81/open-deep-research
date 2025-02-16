@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import {
   Search,
   FileText,
@@ -680,7 +681,7 @@ export default function Home() {
   return (
     <div className='min-h-screen bg-white p-4 sm:p-8'>
       <KnowledgeBaseSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
-      <main className='max-w-4xl mx-auto'>
+      <main className='max-w-4xl mx-auto space-y-8'>
         <div className='mb-3'>
           <h1 className='mb-2 text-center text-gray-800 flex items-center justify-center gap-2'>
             <img
@@ -697,7 +698,7 @@ export default function Home() {
               Open source alternative to Gemini Deep Research. Generate reports
               with AI based on search results.
             </p>
-            <div className='flex justify-center items-center gap-2'>
+            <div className='flex flex-wrap justify-center items-center gap-2'>
               <Button
                 variant='default'
                 size='sm'
@@ -717,7 +718,6 @@ export default function Home() {
                   href='https://github.com/btahir/open-deep-research'
                   target='_blank'
                   rel='noopener noreferrer'
-                  className=''
                 >
                   <Code className='h-4 w-4' />
                   View Code
@@ -779,43 +779,68 @@ export default function Home() {
             className='space-y-4'
           >
             {!isAgentMode ? (
-              <div className='flex flex-col sm:flex-row gap-2'>
-                <div className='relative flex-1'>
-                  <Input
-                    type='text'
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder='Enter your search query...'
-                    className='pr-8'
-                  />
-                  <Search className='absolute right-2 top-2 h-5 w-5 text-gray-400' />
+              <>
+                <div className='flex flex-col sm:flex-row gap-2'>
+                  <div className='relative flex-1'>
+                    <Input
+                      type='text'
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder='Enter your search query...'
+                      className='pr-8'
+                    />
+                    <Search className='absolute right-2 top-2 h-5 w-5 text-gray-400' />
+                  </div>
+
+                  <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                    <Select value={timeFilter} onValueChange={setTimeFilter}>
+                      <SelectTrigger className='w-full sm:w-[140px]'>
+                        <SelectValue placeholder='Select time range' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeFilters.map((filter) => (
+                          <SelectItem key={filter.value} value={filter.value}>
+                            {filter.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      type='submit'
+                      disabled={loading}
+                      className='w-full sm:w-auto'
+                    >
+                      {loading ? 'Searching...' : 'Search'}
+                    </Button>
+                  </div>
                 </div>
-
                 <div className='flex gap-2'>
-                  <Select value={timeFilter} onValueChange={setTimeFilter}>
-                    <SelectTrigger className='w-full sm:w-[140px] sm:shrink-0'>
-                      <SelectValue placeholder='Select time range' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timeFilters.map((filter) => (
-                        <SelectItem key={filter.value} value={filter.value}>
-                          {filter.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Button
-                    type='submit'
-                    disabled={loading}
-                    className='shrink-0 flex-1 sm:flex-initial'
+                  <Input
+                    type='url'
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    placeholder='Add custom URL...'
+                    className='flex-1'
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomUrl(e);
+                      }
+                    }}
+                  />
+                  <Button 
+                    type='button'
+                    variant='outline' 
+                    size='icon'
+                    onClick={handleAddCustomUrl}
                   >
-                    {loading ? 'Searching...' : 'Search'}
+                    <Plus className='h-4 w-4' />
                   </Button>
                 </div>
-              </div>
+              </>
             ) : (
-              <div className='space-y-4'>
+              <div className='space-y-4 sm:space-y-6'>
                 <div className='relative flex-1'>
                   <Input
                     value={reportPrompt}
@@ -825,46 +850,39 @@ export default function Home() {
                   />
                   <Brain className='absolute right-4 top-4 h-5 w-5 text-gray-400' />
                 </div>
-                <Button
-                  type='submit'
-                  disabled={agentStep !== 'idle'}
-                  className='w-full bg-blue-600 hover:bg-blue-700 text-white'
-                >
-                  {agentStep !== 'idle' ? (
-                    <span className='flex items-center gap-2'>
-                      <Loader2 className='h-4 w-4 animate-spin' />
-                      {
+                <div className='w-full'>
+                  <Button
+                    type='submit'
+                    disabled={agentStep !== 'idle'}
+                    className='w-full bg-blue-600 hover:bg-blue-700 text-white'
+                  >
+                    {agentStep !== 'idle' ? (
+                      <span className='flex items-center gap-2'>
+                        <Loader2 className='h-4 w-4 animate-spin' />
                         {
-                          processing: 'Planning Research...',
-                          searching: 'Searching Web...',
-                          analyzing: 'Analyzing Results...',
-                          generating: 'Writing Report...',
-                        }[agentStep]
-                      }
-                    </span>
-                  ) : (
-                    'Start Deep Research'
-                  )}
-                </Button>
+                          {
+                            processing: 'Planning Research...',
+                            searching: 'Searching Web...',
+                            analyzing: 'Analyzing Results...',
+                            generating: 'Writing Report...',
+                          }[agentStep]
+                        }
+                      </span>
+                    ) : (
+                      'Start Deep Research'
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
           </form>
         </div>
 
+        <Separator className='my-8' />
+
         {!isAgentMode && (
           <div className='mb-6'>
-            <form onSubmit={handleAddCustomUrl} className='flex gap-2 mb-2'>
-              <Input
-                type='url'
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder='Add custom URL...'
-                className='flex-1'
-              />
-              <Button type='submit' variant='outline' size='icon'>
-                <Plus className='h-4 w-4' />
-              </Button>
-            </form>
+            {/* Remove this section since we moved it above */}
           </div>
         )}
 
@@ -894,17 +912,13 @@ export default function Home() {
                       <FileText className='absolute right-2 top-2.5 h-5 w-5 text-gray-400' />
                     </div>
                   )}
-                  <div className='flex gap-2'>
+                  <div className={`flex flex-col sm:flex-row gap-2 ${isAgentMode ? 'w-full' : ''}`}>
                     <Select
                       value={selectedModel}
                       onValueChange={setSelectedModel}
                       disabled={platformModels.length === 0}
                     >
-                      <SelectTrigger
-                        className={`w-full ${
-                          !isAgentMode ? 'sm:w-[200px]' : ''
-                        }`}
-                      >
+                      <SelectTrigger className={`w-full ${!isAgentMode ? 'sm:w-[200px]' : ''}`}>
                         <SelectValue
                           placeholder={
                             platformModels.length === 0
@@ -933,7 +947,7 @@ export default function Home() {
                     <Button
                       onClick={handleGenerateReport}
                       disabled={!reportPrompt.trim() || generatingReport}
-                      className='whitespace-nowrap'
+                      className={`w-full ${!isAgentMode ? 'sm:w-auto whitespace-nowrap' : ''}`}
                     >
                       {generatingReport ? (
                         <span className='flex items-center gap-2'>

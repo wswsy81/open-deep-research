@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { geminiFlashModel } from '@/lib/gemini'
-import { CONFIG } from '@/lib/config'
 import { extractAndParseJSON } from '@/lib/utils'
 
 type SearchResultInput = {
