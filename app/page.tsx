@@ -948,73 +948,77 @@ export default function Home() {
                 </div>
               </>
             ) : (
-              <div className='space-y-4 sm:space-y-6'>
-                <div className='relative flex-1'>
-                  <Input
-                    value={state.reportPrompt}
-                    onChange={(e) =>
-                      updateState({ reportPrompt: e.target.value })
-                    }
-                    placeholder="What would you like to research? (e.g., 'Tesla Q4 2024 financial performance and market impact')"
-                    className='pr-8 text-lg py-6'
-                  />
-                  <Brain className='absolute right-4 top-4 h-5 w-5 text-gray-400' />
-                </div>
-                <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
-                  <Select
-                    value={state.selectedModel}
-                    onValueChange={(value) =>
-                      updateState({ selectedModel: value })
-                    }
-                    disabled={platformModels.length === 0}
-                  >
-                    <SelectTrigger className='w-full sm:w-[200px]'>
-                      <SelectValue
-                        placeholder={
-                          platformModels.length === 0
-                            ? 'No models available'
-                            : 'Select model'
+              <div className='space-y-4 sm:space-y-6 lg:space-y-0'>
+                <div className='flex flex-col sm:flex-row lg:items-center gap-2'>
+                  <div className='relative flex-1'>
+                    <Input
+                      value={state.reportPrompt}
+                      onChange={(e) =>
+                        updateState({ reportPrompt: e.target.value })
+                      }
+                      placeholder="What would you like to research? (e.g., 'Tesla Q4 2024 financial performance and market impact')"
+                      className='pr-8 text-lg'
+                    />
+                    <Brain className='absolute right-4 top-3 h-5 w-5 text-gray-400' />
+                  </div>
+                  <div className='flex flex-col sm:flex-row lg:flex-nowrap gap-2 sm:items-center'>
+                    <div className='w-full sm:w-[200px]'>
+                      <Select
+                        value={state.selectedModel}
+                        onValueChange={(value) =>
+                          updateState({ selectedModel: value })
                         }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {platformModels.map((model) => (
-                        <SelectItem
-                          key={model.value}
-                          value={model.value}
-                          disabled={model.disabled}
-                          className={
-                            model.disabled
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : ''
-                          }
-                        >
-                          {model.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type='submit'
-                    disabled={state.status.agentStep !== 'idle'}
-                    className='w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white'
-                  >
-                    {state.status.agentStep !== 'idle' ? (
-                      <span className='flex items-center gap-2'>
-                        <Loader2 className='h-4 w-4 animate-spin' />
-                        {
+                        disabled={platformModels.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              platformModels.length === 0
+                                ? 'No models available'
+                                : 'Select model'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {platformModels.map((model) => (
+                            <SelectItem
+                              key={model.value}
+                              value={model.value}
+                              disabled={model.disabled}
+                              className={
+                                model.disabled
+                                  ? 'text-gray-400 cursor-not-allowed'
+                                  : ''
+                              }
+                            >
+                              {model.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type='submit'
+                      disabled={state.status.agentStep !== 'idle'}
+                      className='w-full sm:w-auto lg:w-[200px] bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap'
+                    >
+                      {state.status.agentStep !== 'idle' ? (
+                        <span className='flex items-center gap-2'>
+                          <Loader2 className='h-4 w-4 animate-spin' />
                           {
-                            processing: 'Planning Research...',
-                            searching: 'Searching Web...',
-                            analyzing: 'Analyzing Results...',
-                            generating: 'Writing Report...',
-                          }[state.status.agentStep]
-                        }
-                      </span>
-                    ) : (
-                      'Start Deep Research'
-                    )}
-                  </Button>
+                            {
+                              processing: 'Planning Research...',
+                              searching: 'Searching Web...',
+                              analyzing: 'Analyzing Results...',
+                              generating: 'Writing Report...',
+                            }[state.status.agentStep]
+                          }
+                        </span>
+                      ) : (
+                        'Start Deep Research'
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1057,7 +1061,7 @@ export default function Home() {
                       !state.selectedModel
                     }
                     type='button'
-                    className='w-full sm:w-auto whitespace-nowrap'
+                    className='w-full sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white'
                   >
                     {state.status.generatingReport ? (
                       <span className='flex items-center gap-2'>
