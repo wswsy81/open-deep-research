@@ -156,9 +156,31 @@ export default function Home() {
   // Memoized error handler
   const handleError = useCallback(
     (error: unknown, context: string) => {
-      const message = error instanceof Error ? error.message : 'Unknown error'
+      let message = 'An unexpected error occurred'
+
+      if (error instanceof Error) {
+        message = error.message
+      } else if (error instanceof Response) {
+        // Handle Response objects from fetch
+        message = `Server error: ${error.status}`
+      } else if (
+        typeof error === 'object' &&
+        error !== null &&
+        'error' in error
+      ) {
+        // Handle error objects with error message
+        message = (error as { error: string }).error
+      } else if (typeof error === 'string') {
+        message = error
+      }
+
       updateState({ error: message })
-      toast({ title: context, description: message, variant: 'destructive' })
+      toast({
+        title: context,
+        description: message,
+        variant: 'destructive',
+        duration: 5000,
+      })
     },
     [toast, updateState]
   )
@@ -172,12 +194,21 @@ export default function Home() {
         body: JSON.stringify({ url }),
       })
 
-      if (!response.ok) throw new Error('Failed to fetch content')
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Failed to fetch content' }))
+        throw new Error(
+          errorData.error || `Failed to fetch content: ${response.status}`
+        )
+      }
+
       const data = await response.json()
       return data
     } catch (error) {
       if (error instanceof Error && error.message.includes('429')) throw error
-      return { content: null }
+      console.error('Content fetch error:', error)
+      throw error
     }
   }, [])
 
@@ -260,6 +291,11 @@ export default function Home() {
                 } catch (error) {
                   if (error instanceof Error && error.message.includes('429'))
                     throw error
+                  console.error(
+                    'Content fetch error for article:',
+                    article.url,
+                    error
+                  )
                 }
                 updateStatus((prev: Status) => ({
                   ...prev,
@@ -280,8 +316,8 @@ export default function Home() {
               })
           )
 
-          const response = await retryWithBackoff(() =>
-            fetch('/api/report', {
+          const response = await retryWithBackoff(async () => {
+            const res = await fetch('/api/report', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -294,8 +330,19 @@ export default function Home() {
                 prompt: `${state.query}. Provide comprehensive analysis.`,
                 platformModel: state.selectedModel,
               }),
-            }).then((res) => res.json())
-          )
+            })
+
+            if (!res.ok) {
+              const errorData = await res
+                .json()
+                .catch(() => ({ error: 'Failed to generate report' }))
+              throw new Error(
+                errorData.error || `Failed to generate report: ${res.status}`
+              )
+            }
+
+            return res.json()
+          })
 
           updateState({
             report: response,
@@ -313,16 +360,25 @@ export default function Home() {
       updateState({ error: null, reportPrompt: '' })
 
       try {
-        const response = await retryWithBackoff(() =>
-          fetch('/api/search', {
+        const response = await retryWithBackoff(async () => {
+          const res = await fetch('/api/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               query: state.query,
               timeFilter: state.timeFilter,
             }),
-          }).then((res) => res.json())
-        )
+          })
+
+          if (!res.ok) {
+            const errorData = await res
+              .json()
+              .catch(() => ({ error: 'Search failed' }))
+            throw new Error(errorData.error || `Search failed: ${res.status}`)
+          }
+
+          return res.json()
+        })
 
         const newResults = (response.webPages?.value || []).map(
           (result: SearchResult) => ({
@@ -1028,8 +1084,13 @@ export default function Home() {
         <Separator className='my-8' />
 
         {state.error && (
-          <div className='p-4 mb-4 bg-red-50 border border-red-200 rounded-md text-red-600 text-center'>
-            {state.error}
+          <div className='p-4 mb-4 bg-red-50 border border-red-200 rounded-lg'>
+            <div className='flex items-center gap-2 text-red-700'>
+              <div>
+                <h3 className='font-semibold'>Error</h3>
+                <p className='text-sm'>{state.error}</p>
+              </div>
+            </div>
           </div>
         )}
 
