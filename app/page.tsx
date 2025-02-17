@@ -477,6 +477,9 @@ export default function Home() {
             return response.json()
           })
 
+        // Update the query state to show optimized query
+        updateState({ query: query })
+
         updateStatus((prev: Status) => ({
           ...prev,
           searchQueries: [query],
@@ -1010,10 +1013,13 @@ export default function Home() {
                 <div className='flex flex-col sm:flex-row lg:items-center gap-2'>
                   <div className='relative flex-1'>
                     <Input
-                      value={state.reportPrompt}
-                      onChange={(e) =>
-                        updateState({ reportPrompt: e.target.value })
-                      }
+                      value={state.query || state.reportPrompt}
+                      onChange={(e) => {
+                        updateState({
+                          reportPrompt: e.target.value,
+                          query: '',
+                        })
+                      }}
                       placeholder="What would you like to research? (e.g., 'Tesla Q4 2024 financial performance and market impact')"
                       className='pr-8 text-lg'
                     />
