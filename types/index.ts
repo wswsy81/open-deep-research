@@ -46,6 +46,20 @@ export type PlatformModel = {
   disabled: boolean
 }
 
+export type ModelVariant =
+  | 'google__gemini-flash'
+  | 'google__gemini-flash-thinking'
+  | 'google__gemini-exp'
+  | 'gpt-4o'
+  | 'o1-mini'
+  | 'o1'
+  | 'sonnet-3.5'
+  | 'haiku-3.5'
+  | 'deepseek__chat'
+  | 'deepseek__reasoner'
+  | 'ollama__llama3.2'
+  | 'ollama__deepseek-r1:14b'
+
 export type Status = {
   loading: boolean
   generatingReport: boolean

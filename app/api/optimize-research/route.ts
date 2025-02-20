@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server'
-import { geminiFlashLiteModel } from '@/lib/gemini'
+import { reportContentRatelimit } from '@/lib/redis'
+import { CONFIG } from '@/lib/config'
 import { extractAndParseJSON } from '@/lib/utils'
+import {
+  generateWithGemini,
+  generateWithOpenAI,
+  generateWithDeepSeek,
+  generateWithAnthropic,
+  generateWithOllama,
+} from '@/lib/models'
+import { type ModelVariant } from '@/types'
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = await request.json()
+    const { prompt, platformModel = 'google__gemini-flash' } =
+      (await request.json()) as {
+        prompt: string
+        platformModel: ModelVariant
+      }
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
@@ -23,6 +36,44 @@ export async function POST(request: Request) {
           'Test Structure 3',
         ],
       })
+    }
+
+    // Only check rate limit if enabled and not using Ollama (local model)
+    const platform = platformModel.split('__')[0]
+    const model = platformModel.split('__')[1]
+    if (CONFIG.rateLimits.enabled && platform !== 'ollama') {
+      const { success } = await reportContentRatelimit.limit('optimize')
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many requests' },
+          { status: 429 }
+        )
+      }
+    }
+
+    // Check if selected platform is enabled
+    const platformConfig =
+      CONFIG.platforms[platform as keyof typeof CONFIG.platforms]
+    if (!platformConfig?.enabled) {
+      return NextResponse.json(
+        { error: `${platform} platform is not enabled` },
+        { status: 400 }
+      )
+    }
+
+    // Check if selected model exists and is enabled
+    const modelConfig = (platformConfig as any).models[model]
+    if (!modelConfig) {
+      return NextResponse.json(
+        { error: `${model} model does not exist` },
+        { status: 400 }
+      )
+    }
+    if (!modelConfig.enabled) {
+      return NextResponse.json(
+        { error: `${model} model is disabled` },
+        { status: 400 }
+      )
     }
 
     const systemPrompt = `You are a research assistant tasked with optimizing a research topic into an effective search query.
@@ -54,16 +105,46 @@ Format your response as a JSON object with this structure:
 
 Make the query clear and focused, avoiding overly complex or lengthy constructions.`
 
-    const result = await geminiFlashLiteModel.generateContent(systemPrompt)
-    const response = result.response.text()
-
     try {
-      const parsedResponse = extractAndParseJSON(response)
-      return NextResponse.json(parsedResponse)
-    } catch (parseError) {
-      console.error('Failed to parse optimization:', parseError)
+      let response: string | null = null
+      switch (platform) {
+        case 'google':
+          response = await generateWithGemini(systemPrompt, model)
+          break
+        case 'openai':
+          response = await generateWithOpenAI(systemPrompt, model)
+          break
+        case 'deepseek':
+          response = await generateWithDeepSeek(systemPrompt, model)
+          break
+        case 'anthropic':
+          response = await generateWithAnthropic(systemPrompt, model)
+          break
+        case 'ollama':
+          response = await generateWithOllama(systemPrompt, model)
+          break
+        default:
+          throw new Error('Invalid platform specified')
+      }
+
+      if (!response) {
+        throw new Error('No response from model')
+      }
+
+      try {
+        const parsedResponse = extractAndParseJSON(response)
+        return NextResponse.json(parsedResponse)
+      } catch (parseError) {
+        console.error('Failed to parse optimization:', parseError)
+        return NextResponse.json(
+          { error: 'Failed to optimize research' },
+          { status: 500 }
+        )
+      }
+    } catch (error) {
+      console.error('Model generation error:', error)
       return NextResponse.json(
-        { error: 'Failed to optimize research' },
+        { error: 'Failed to generate optimization' },
         { status: 500 }
       )
     }

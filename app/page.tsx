@@ -467,7 +467,10 @@ export default function Home() {
             const response = await fetch('/api/optimize-research', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt: state.reportPrompt }),
+              body: JSON.stringify({ 
+                prompt: state.reportPrompt,
+                platformModel: state.selectedModel 
+              }),
             })
             if (!response.ok) {
               throw new Error(
@@ -556,6 +559,7 @@ export default function Home() {
                 url: r.url,
               })),
               isTestQuery: query.toLowerCase() === 'test',
+              platformModel: state.selectedModel
             }),
           })
           if (!response.ok) {

@@ -1,136 +1,17 @@
 import { NextResponse } from 'next/server'
-import {
-  geminiModel,
-  geminiFlashModel,
-  geminiFlashThinkingModel,
-} from '@/lib/gemini'
 import { reportContentRatelimit } from '@/lib/redis'
-import { type Article } from '@/types'
+import { type Article, type ModelVariant } from '@/types'
 import { CONFIG } from '@/lib/config'
-import OpenAI from 'openai'
-import Anthropic from '@anthropic-ai/sdk'
-import ollama from 'ollama'
 import { extractAndParseJSON } from '@/lib/utils'
+import {
+  generateWithGemini,
+  generateWithOpenAI,
+  generateWithDeepSeek,
+  generateWithAnthropic,
+  generateWithOllama,
+} from '@/lib/models'
+
 export const maxDuration = 60
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-})
-
-const deepseek = new OpenAI({
-  baseURL: 'https://api.deepseek.com',
-  apiKey: process.env.DEEPSEEK_API_KEY || '',
-})
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-})
-
-type PlatformModel =
-  | 'google__gemini-flash'
-  | 'google__gemini-flash-thinking'
-  | 'google__gemini-exp'
-  | 'gpt-4o'
-  | 'o1-mini'
-  | 'o1'
-  | 'sonnet-3.5'
-  | 'haiku-3.5'
-  | 'deepseek__chat'
-  | 'deepseek__reasoner'
-  | 'ollama__llama3.2'
-  | 'ollama__deepseek-r1:14b'
-
-type DeepSeekMessage = {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-}
-
-async function generateWithGemini(systemPrompt: string, model: string) {
-  if (model === 'gemini-flash-thinking') {
-    const result = await geminiFlashThinkingModel.generateContent(systemPrompt)
-    return result.response.text()
-  } else if (model === 'gemini-exp') {
-    const result = await geminiModel.generateContent(systemPrompt)
-    return result.response.text()
-  } else {
-    const result = await geminiFlashModel.generateContent(systemPrompt)
-    return result.response.text()
-  }
-}
-
-async function generateWithOpenAI(systemPrompt: string, model: string) {
-  const response = await openai.chat.completions.create({
-    model,
-    messages: [
-      {
-        role: 'user',
-        content: systemPrompt,
-      },
-    ],
-  })
-  return response.choices[0].message.content
-}
-
-async function generateWithDeepSeek(systemPrompt: string, model: string) {
-  try {
-    // Initial message to start the conversation
-    const messages: DeepSeekMessage[] = [
-      {
-        role: 'user',
-        content: systemPrompt,
-      },
-    ]
-
-    const response = await deepseek.chat.completions.create({
-      model,
-      messages: messages as any,
-      max_tokens: 4000,
-    })
-
-    // Get the initial response
-    const content = response.choices[0].message.content || ''
-
-    // For the reasoner model, we can get additional reasoning content
-    let reasoning = ''
-    const messageWithReasoning = response.choices[0].message as any
-    if (
-      model === 'deepseek-reasoner' &&
-      messageWithReasoning.reasoning_content
-    ) {
-      reasoning = messageWithReasoning.reasoning_content
-      console.log('DeepSeek reasoning:', reasoning)
-    }
-
-    return content
-  } catch (error) {
-    console.error('DeepSeek API error:', error)
-    throw error
-  }
-}
-
-async function generateWithAnthropic(systemPrompt: string, model: string) {
-  const response = await anthropic.messages.create({
-    model,
-    max_tokens: 3500,
-    temperature: 0.9,
-    messages: [
-      {
-        role: 'user',
-        content: systemPrompt,
-      },
-    ],
-  })
-  return response.content[0].text || ''
-}
-
-async function generateWithOllama(systemPrompt: string, model: string) {
-  const response = await ollama.chat({
-    model: model.replace('ollama__', ''),
-    messages: [{ role: 'user', content: systemPrompt }],
-  })
-  console.log('ollama response', response)
-  return response.message.content
-}
 
 export async function POST(request: Request) {
   try {
@@ -144,7 +25,7 @@ export async function POST(request: Request) {
       selectedResults: Article[]
       sources: any[]
       prompt: string
-      platformModel: PlatformModel
+      platformModel: ModelVariant
     }
 
     // Only check rate limit if enabled and not using Ollama (local model)
