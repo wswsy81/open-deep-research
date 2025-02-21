@@ -1,12 +1,27 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import type { Node, Edge, Connection, NodeTypes, NodeChange, EdgeChange, XYPosition } from '@xyflow/react'
-import { ReactFlow, Controls, Background, addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
+import type {
+  Node,
+  Edge,
+  Connection,
+  NodeTypes,
+  NodeChange,
+  EdgeChange,
+  XYPosition,
+} from '@xyflow/react'
+import {
+  ReactFlow,
+  Controls,
+  Background,
+  addEdge,
+  applyNodeChanges,
+  applyEdgeChanges,
+} from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Brain, Search } from 'lucide-react'
+import { Brain, Search, FileText, Loader2 } from 'lucide-react'
 import { SearchNode } from '@/components/flow/search-node'
 import { ReportNode } from '@/components/flow/report-node'
 import { SelectionNode } from '@/components/flow/selection-node'
@@ -37,6 +52,10 @@ interface ResearchNode extends Node {
     onConsolidate?: () => void
     hasChildren?: boolean
     error?: string
+    isSelected?: boolean
+    onSelect?: (id: string) => void
+    isConsolidated?: boolean
+    isConsolidating?: boolean
   }
 }
 
@@ -45,14 +64,18 @@ export default function FlowPage() {
   const [edges, setEdges] = useState<Edge[]>([])
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
+  const [selectedReports, setSelectedReports] = useState<string[]>([])
+  const [isConsolidating, setIsConsolidating] = useState(false)
 
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    (changes: NodeChange[]) =>
+      setNodes((nds) => applyNodeChanges(changes, nds)),
     [setNodes]
   )
 
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    (changes: EdgeChange[]) =>
+      setEdges((eds) => applyEdgeChanges(changes, eds)),
     [setEdges]
   )
 
@@ -62,52 +85,67 @@ export default function FlowPage() {
   )
 
   const createNode = (
-    type: string, 
-    position: XYPosition, 
+    type: string,
+    position: XYPosition,
     data: ResearchNode['data'],
     parentId?: string
   ): ResearchNode => {
-    // Set z-index based on node type
-    let zIndex = 0;
+    const id = `${type}-${Date.now()}`
+
+    let zIndex = 0
     switch (type) {
       case 'group':
-        zIndex = 0; // Group nodes at the bottom
-        break;
+        zIndex = 0
+        break
       case 'searchNode':
-        zIndex = 1;
-        break;
+        zIndex = 1
+        break
       case 'selectionNode':
-        zIndex = 2;
-        break;
+        zIndex = 2
+        break
       case 'reportNode':
       case 'questionNode':
-        zIndex = 3; // Report and question nodes on top
-        break;
+        zIndex = 3
+        break
       default:
-        zIndex = 1;
+        zIndex = 1
     }
 
+    const nodeData =
+      type === 'reportNode'
+        ? {
+            ...data,
+            childIds: data.childIds || [],
+            isSelected: selectedReports.includes(id),
+            onSelect: (id: string) => handleReportSelect(id),
+            isConsolidating,
+          }
+        : { ...data, childIds: data.childIds || [] }
+
     return {
-      id: `${type}-${Date.now()}`,
+      id,
       type,
       position: {
         x: Math.max(0, Math.round(position.x)),
-        y: Math.max(0, Math.round(position.y))
+        y: Math.max(0, Math.round(position.y)),
       },
-      data: { ...data, childIds: data.childIds || [] },
+      data: nodeData,
       parentId,
       extent: 'parent',
       zIndex,
     }
   }
 
-  const createGroupNode = (position: XYPosition, query: string): ResearchNode => ({
+  const createGroupNode = (
+    position: XYPosition,
+    query: string
+  ): ResearchNode => ({
     id: `group-${Date.now()}`,
     type: 'group',
     position,
     style: {
       width: 800,
-      height: 1200, // Increased height to accommodate larger spacing
+      height: 1200,
       padding: 60,
       backgroundColor: 'rgba(240, 240, 240, 0.5)',
       borderRadius: 8,
@@ -116,59 +154,55 @@ export default function FlowPage() {
       query,
       childIds: [],
     },
-    zIndex: 0, // Ensure group is always at the bottom
+    zIndex: 0,
   })
 
   const handleStartResearch = async (parentReportId?: string) => {
     if (!query.trim()) return
-    
+
     setLoading(true)
     try {
-      // Calculate randomized position for the group
       const randomOffset = {
-        x: Math.floor(Math.random() * 600) - 300, // Random offset between -300 and 300
-        y: Math.floor(Math.random() * 300) // Random offset between 0 and 300
+        x: Math.floor(Math.random() * 600) - 300,
+        y: Math.floor(Math.random() * 300),
       }
-      
+
       const basePosition = {
-        x: parentReportId 
-          ? nodes.find(n => n.id === parentReportId)?.position.x || 0
+        x: parentReportId
+          ? nodes.find((n) => n.id === parentReportId)?.position.x || 0
           : nodes.length * 200,
         y: parentReportId
-          ? (nodes.find(n => n.id === parentReportId)?.position.y || 0) + 400
-          : 0
+          ? (nodes.find((n) => n.id === parentReportId)?.position.y || 0) + 400
+          : 0,
       }
 
       const groupPosition = {
         x: Math.max(0, basePosition.x + randomOffset.x),
-        y: Math.max(0, basePosition.y + randomOffset.y)
+        y: Math.max(0, basePosition.y + randomOffset.y),
       }
 
-      // Create a group node for this research chain
       const groupNode = createGroupNode(groupPosition, query)
-      
-      // Create search node within the group - centered horizontally
+
       const searchNode = createNode(
         'searchNode',
         { x: 100, y: 80 },
-        { 
-          query, 
+        {
+          query,
           loading: true,
-          childIds: []
+          childIds: [],
         },
         groupNode.id
       )
 
-      // Add both nodes
-      setNodes(nds => [...nds, groupNode, searchNode])
+      setNodes((nds) => [...nds, groupNode, searchNode])
 
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          query, 
+        body: JSON.stringify({
+          query,
           timeFilter: 'all',
-          platformModel: DEFAULT_MODEL 
+          platformModel: DEFAULT_MODEL,
         }),
       })
 
@@ -180,112 +214,124 @@ export default function FlowPage() {
         throw new Error('No search results found')
       }
 
-      // Transform search results to match expected format
       const searchResults = data.webPages.value.map((result: any) => ({
         id: result.id || `result-${Date.now()}-${Math.random()}`,
         url: result.url,
         name: result.name || result.title,
         snippet: result.snippet,
-        isCustomUrl: false
+        isCustomUrl: false,
       }))
 
       console.log('Transformed search results:', searchResults)
 
-      // Create selection node within the group - centered horizontally
       const selectionNode = createNode(
         'selectionNode',
-        { x: 100, y: 200 }, // Adjusted to account for padding
+        { x: 100, y: 200 },
         {
           results: searchResults,
           onGenerateReport: (selected) => {
             console.log('Generate report clicked with:', selected)
             handleGenerateReport(selected, searchNode.id, groupNode.id)
           },
-          childIds: []
+          childIds: [],
         },
         groupNode.id
       )
 
-      // Update nodes and add edge
-      setNodes(nds => {
-        const updatedNodes = nds.map(node => 
-          node.id === searchNode.id 
+      setNodes((nds) => {
+        const updatedNodes = nds.map((node) =>
+          node.id === searchNode.id
             ? { ...node, data: { ...node.data, loading: false } }
             : node
         )
         return [...updatedNodes, selectionNode]
       })
 
-      setEdges(eds => [...eds, {
-        id: `edge-${searchNode.id}-${selectionNode.id}`,
-        source: searchNode.id,
-        target: selectionNode.id,
-        animated: true
-      }])
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: `edge-${searchNode.id}-${selectionNode.id}`,
+          source: searchNode.id,
+          target: selectionNode.id,
+          animated: true,
+        },
+      ])
     } catch (error) {
       console.error('Search error:', error)
-      setNodes(nds => nds.map(node => 
-        node.data.loading ? { ...node, data: { ...node.data, loading: false, error: error instanceof Error ? error.message : 'Search failed' } } : node
-      ))
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.data.loading
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  loading: false,
+                  error:
+                    error instanceof Error ? error.message : 'Search failed',
+                },
+              }
+            : node
+        )
+      )
     } finally {
       setLoading(false)
     }
   }
 
   const handleGenerateReport = async (
-    selectedResults: SearchResult[], 
+    selectedResults: SearchResult[],
     searchNodeId: string,
     groupId: string
   ) => {
-    console.log('handleGenerateReport called with:', { selectedResults, searchNodeId, groupId })
-    
+    console.log('handleGenerateReport called with:', {
+      selectedResults,
+      searchNodeId,
+      groupId,
+    })
+
     if (selectedResults.length === 0) {
       console.error('No results selected')
       return
     }
 
-    // Create report and search terms nodes with much larger vertical spacing
     const reportNode = createNode(
       'reportNode',
-      { x: 100, y: 800 }, // Much larger y position
+      { x: 100, y: 800 },
       {
         loading: true,
-        hasChildren: false
+        hasChildren: false,
       },
       groupId
     )
 
     const searchTermsNode = createNode(
       'questionNode',
-      { x: 100, y: 1000 }, // Much larger y position
-      { 
-        loading: true
+      { x: 100, y: 1000 },
+      {
+        loading: true,
       },
       groupId
     )
 
-    // Add nodes first
-    setNodes(nds => [...nds, reportNode, searchTermsNode])
+    setNodes((nds) => [...nds, reportNode, searchTermsNode])
 
-    // Add edges to connect nodes
-    setEdges(eds => [
+    setEdges((eds) => [
       ...eds,
       {
         id: `edge-${searchNodeId}-${reportNode.id}`,
         source: searchNodeId,
         target: reportNode.id,
-        animated: true
+        animated: true,
       },
       {
         id: `edge-${reportNode.id}-${searchTermsNode.id}`,
         source: reportNode.id,
         target: searchTermsNode.id,
-        animated: true
-      }
+        animated: true,
+      },
     ])
 
     try {
-      // Fetch content for selected results
       const contentResults = await Promise.all(
         selectedResults.map(async (result) => {
           try {
@@ -296,29 +342,27 @@ export default function FlowPage() {
             })
             if (!response.ok) throw new Error('Failed to fetch content')
             const { content } = await response.json()
-            return { 
-              url: result.url, 
-              title: result.name, 
-              content: content || result.snippet 
+            return {
+              url: result.url,
+              title: result.name,
+              content: content || result.snippet,
             }
           } catch (error) {
             console.error('Content fetch error:', error)
-            return { 
-              url: result.url, 
-              title: result.name, 
-              content: result.snippet 
+            return {
+              url: result.url,
+              title: result.name,
+              content: result.snippet,
             }
           }
         })
       )
 
-      // Filter out any results without content
-      const validResults = contentResults.filter(r => r.content?.trim())
+      const validResults = contentResults.filter((r) => r.content?.trim())
       if (validResults.length === 0) {
         throw new Error('No valid content found in selected results')
       }
 
-      // Generate report
       const reportResponse = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -333,10 +377,9 @@ export default function FlowPage() {
       if (!reportResponse.ok) {
         throw new Error('Failed to generate report')
       }
-      
+
       const report = await reportResponse.json()
 
-      // Generate search terms
       const searchTermsResponse = await fetch('/api/generate-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -349,155 +392,225 @@ export default function FlowPage() {
       if (!searchTermsResponse.ok) {
         throw new Error('Failed to generate search terms')
       }
-      
+
       const { searchTerms } = await searchTermsResponse.json()
 
-      // Update nodes with generated content
-      setNodes(nds => nds.map(node => {
-        if (node.id === reportNode.id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              report,
-              loading: false
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id === reportNode.id) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                report,
+                loading: false,
+              },
             }
           }
-        }
-        if (node.id === searchTermsNode.id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              searchTerms,
-              loading: false,
-              onApprove: (term?: string) => {
-                if (term) {
-                  setQuery(term)
-                  handleStartResearch()
-                }
-              }
+          if (node.id === searchTermsNode.id) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                searchTerms,
+                loading: false,
+                onApprove: (term?: string) => {
+                  if (term) {
+                    setQuery(term)
+                    handleStartResearch()
+                  }
+                },
+              },
             }
           }
-        }
-        return node
-      }))
-
+          return node
+        })
+      )
     } catch (error) {
       console.error('Report generation error:', error)
-      // Update error state for both nodes
-      setNodes(nds => nds.map(node => {
-        if (node.id === reportNode.id || node.id === searchTermsNode.id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              loading: false,
-              error: error instanceof Error ? error.message : 'Generation failed'
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id === reportNode.id || node.id === searchTermsNode.id) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                loading: false,
+                error:
+                  error instanceof Error ? error.message : 'Generation failed',
+              },
             }
           }
-        }
-        return node
-      }))
-    }
-  }
-
-  const consolidateReports = async (reportId: string) => {
-    const reportChain = getReportChain(reportId)
-    if (!reportChain.length) return
-
-    try {
-      const response = await fetch('/api/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selectedResults: [],
-          sources: [],
-          prompt: `Create a comprehensive consolidated report that synthesizes the following research chain. Each report builds upon the previous findings:
-
-${reportChain.map((item, index) => `
-Report ${index + 1} Title: ${item.title}
-Report ${index + 1} Summary: ${item.summary}
-`).join('\n')}
-
-Provide a cohesive analysis that shows how the research evolved and what key insights were discovered along the way.`,
-          platformModel: DEFAULT_MODEL,
-        }),
-      })
-
-      if (!response.ok) throw new Error('Failed to generate consolidated report')
-      const consolidated: Report = await response.json()
-
-      const rootNode = nodes.find(n => n.id === reportId)
-      if (!rootNode?.parentId) throw new Error('Root node not found or has no parent')
-
-      const consolidatedNode = createNode(
-        'reportNode',
-        { x: 50, y: 800 },
-        {
-          report: consolidated,
-          loading: false,
-          childIds: [],
-          hasChildren: false
-        },
-        rootNode.parentId
+          return node
+        })
       )
-
-      setNodes(nds => [...nds, consolidatedNode])
-      setEdges(eds => [...eds, {
-        id: `edge-${reportId}-${consolidatedNode.id}`,
-        source: reportId,
-        target: consolidatedNode.id,
-        animated: true,
-        type: 'consolidated'
-      }])
-    } catch (error) {
-      console.error('Consolidation error:', error)
     }
   }
 
   const getReportChain = (reportId: string): Report[] => {
     const chain: Report[] = []
-    let currentNode = nodes.find(n => n.id === reportId)
-    
+    let currentNode = nodes.find((n) => n.id === reportId)
+
     while (currentNode?.data.report) {
       chain.push(currentNode.data.report)
-      currentNode = nodes.find(n => n.id === currentNode?.data.parentId)
+      currentNode = nodes.find((n) => n.id === currentNode?.data.parentId)
     }
-    
+
     return chain.reverse()
   }
 
+  const handleReportSelect = (reportId: string) => {
+    setSelectedReports((prev) => {
+      const newSelected = prev.includes(reportId)
+        ? prev.filter((id) => id !== reportId)
+        : [...prev, reportId]
+
+      setNodes((nds) =>
+        nds.map((node) =>
+          node.id === reportId
+            ? {
+                ...node,
+                data: { ...node.data, isSelected: !prev.includes(reportId) },
+              }
+            : node
+        )
+      )
+
+      return newSelected
+    })
+  }
+
+  const handleConsolidateSelected = async () => {
+    if (selectedReports.length < 2) {
+      console.error('Select at least 2 reports to consolidate')
+      return
+    }
+
+    setIsConsolidating(true)
+    try {
+      const reportsToConsolidate = nodes
+        .filter((node) => selectedReports.includes(node.id) && node.data.report)
+        .map((node) => node.data.report!)
+
+      console.log('Consolidating reports:', {
+        numReports: reportsToConsolidate.length,
+        reportTitles: reportsToConsolidate.map((r) => r.title),
+      })
+
+      const response = await fetch('/api/consolidate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reports: reportsToConsolidate,
+          platformModel: DEFAULT_MODEL,
+        }),
+      })
+
+      if (!response.ok)
+        throw new Error('Failed to generate consolidated report')
+      const consolidated: Report = await response.json()
+
+      console.log('Received consolidated report:', consolidated)
+
+      const groupNode = createGroupNode(
+        {
+          x:
+            Math.max(
+              ...selectedReports.map(
+                (id) => nodes.find((n) => n.id === id)?.position.x || 0
+              )
+            ) + 1000,
+          y: Math.min(
+            ...selectedReports.map(
+              (id) => nodes.find((n) => n.id === id)?.position.y || 0
+            )
+          ),
+        },
+        'Consolidated Research'
+      )
+
+      const consolidatedNode = createNode(
+        'reportNode',
+        { x: 100, y: 100 },
+        {
+          report: consolidated,
+          loading: false,
+          childIds: [],
+          hasChildren: false,
+          isConsolidated: true,
+        },
+        groupNode.id
+      )
+
+      setNodes((nds) => [...nds, groupNode, consolidatedNode])
+
+      setEdges((eds) => [
+        ...eds,
+        ...selectedReports.map((reportId) => ({
+          id: `edge-${reportId}-${consolidatedNode.id}`,
+          source: reportId,
+          target: consolidatedNode.id,
+          animated: true,
+          type: 'consolidated',
+        })),
+      ])
+
+      setSelectedReports([])
+    } catch (error) {
+      console.error('Consolidation error:', error)
+    } finally {
+      setIsConsolidating(false)
+    }
+  }
+
   return (
-    <div className="h-screen flex flex-col">
-      <div className="p-4 border-b">
-        <div className="max-w-4xl mx-auto flex gap-4">
+    <div className='h-screen flex flex-col'>
+      <div className='p-4 border-b'>
+        <div className='max-w-4xl mx-auto flex gap-4'>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter research topic"
-            className="flex-1"
+            placeholder='Enter research topic'
+            className='flex-1'
           />
           <Button
             onClick={() => handleStartResearch()}
             disabled={loading}
-            className="gap-2"
+            className='gap-2'
           >
             {loading ? (
               <>
-                <Brain className="h-4 w-4 animate-spin" />
+                <Brain className='h-4 w-4 animate-spin' />
                 Researching...
               </>
             ) : (
               <>
-                <Search className="h-4 w-4" />
+                <Search className='h-4 w-4' />
                 Start Research
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleConsolidateSelected}
+            disabled={selectedReports.length < 2 || isConsolidating}
+            variant='outline'
+            className='gap-2'
+          >
+            {isConsolidating ? (
+              <>
+                <Loader2 className='h-4 w-4 animate-spin' />
+                Consolidating...
+              </>
+            ) : (
+              <>
+                <FileText className='h-4 w-4' />
+                Consolidate Selected ({selectedReports.length})
               </>
             )}
           </Button>
         </div>
       </div>
-      <div className="flex-1">
+      <div className='flex-1'>
         <ReactFlow
           nodes={nodes}
           edges={edges}
