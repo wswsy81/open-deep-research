@@ -66,26 +66,49 @@ export default function FlowPage() {
     position: XYPosition, 
     data: ResearchNode['data'],
     parentId?: string
-  ): ResearchNode => ({
-    id: `${type}-${Date.now()}`,
-    type,
-    position: {
-      x: Math.max(0, Math.round(position.x)),
-      y: Math.max(0, Math.round(position.y))
-    },
-    data: { ...data, childIds: data.childIds || [] },
-    parentId, // This makes it a child node in the sub-flow
-    extent: 'parent', // Keeps the node within its parent boundaries
-  })
+  ): ResearchNode => {
+    // Set z-index based on node type
+    let zIndex = 0;
+    switch (type) {
+      case 'group':
+        zIndex = 0; // Group nodes at the bottom
+        break;
+      case 'searchNode':
+        zIndex = 1;
+        break;
+      case 'selectionNode':
+        zIndex = 2;
+        break;
+      case 'reportNode':
+      case 'questionNode':
+        zIndex = 3; // Report and question nodes on top
+        break;
+      default:
+        zIndex = 1;
+    }
+
+    return {
+      id: `${type}-${Date.now()}`,
+      type,
+      position: {
+        x: Math.max(0, Math.round(position.x)),
+        y: Math.max(0, Math.round(position.y))
+      },
+      data: { ...data, childIds: data.childIds || [] },
+      parentId,
+      extent: 'parent',
+      zIndex,
+    }
+  }
 
   const createGroupNode = (position: XYPosition, query: string): ResearchNode => ({
     id: `group-${Date.now()}`,
     type: 'group',
     position,
     style: {
-      width: 800,  // Reduced width to better contain nodes
-      height: 1000,
-      padding: 60,  // Increased padding
+      width: 800,
+      height: 1200, // Increased height to accommodate larger spacing
+      padding: 60,
       backgroundColor: 'rgba(240, 240, 240, 0.5)',
       borderRadius: 8,
     },
@@ -93,6 +116,7 @@ export default function FlowPage() {
       query,
       childIds: [],
     },
+    zIndex: 0, // Ensure group is always at the bottom
   })
 
   const handleStartResearch = async (parentReportId?: string) => {
@@ -100,10 +124,24 @@ export default function FlowPage() {
     
     setLoading(true)
     try {
-      // Calculate position for the group
+      // Calculate randomized position for the group
+      const randomOffset = {
+        x: Math.floor(Math.random() * 600) - 300, // Random offset between -300 and 300
+        y: Math.floor(Math.random() * 300) // Random offset between 0 and 300
+      }
+      
+      const basePosition = {
+        x: parentReportId 
+          ? nodes.find(n => n.id === parentReportId)?.position.x || 0
+          : nodes.length * 200,
+        y: parentReportId
+          ? (nodes.find(n => n.id === parentReportId)?.position.y || 0) + 400
+          : 0
+      }
+
       const groupPosition = {
-        x: parentReportId ? nodes.length * 800 : 0, // Adjusted spacing between groups
-        y: 0
+        x: Math.max(0, basePosition.x + randomOffset.x),
+        y: Math.max(0, basePosition.y + randomOffset.y)
       }
 
       // Create a group node for this research chain
@@ -112,7 +150,7 @@ export default function FlowPage() {
       // Create search node within the group - centered horizontally
       const searchNode = createNode(
         'searchNode',
-        { x: 100, y: 80 }, // Adjusted to account for padding
+        { x: 100, y: 80 },
         { 
           query, 
           loading: true,
@@ -206,10 +244,10 @@ export default function FlowPage() {
       return
     }
 
-    // Create report and search terms nodes
+    // Create report and search terms nodes with much larger vertical spacing
     const reportNode = createNode(
       'reportNode',
-      { x: 100, y: 400 },
+      { x: 100, y: 800 }, // Much larger y position
       {
         loading: true,
         hasChildren: false
@@ -218,8 +256,8 @@ export default function FlowPage() {
     )
 
     const searchTermsNode = createNode(
-      'questionNode', // Keep the type as questionNode for now since we're reusing the component
-      { x: 100, y: 600 },
+      'questionNode',
+      { x: 100, y: 1000 }, // Much larger y position
       { 
         loading: true
       },

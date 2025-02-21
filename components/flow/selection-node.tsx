@@ -49,30 +49,32 @@ export const SelectionNode = memo(function SelectionNode({
   }
 
   return (
-    <div className="w-[70%] mx-auto">
+    <div className="w-auto max-w-[600px] mx-auto">
       <Card>
         <Handle type="target" position={Position.Top} />
-        <CardContent className="p-4">
-          <div className="space-y-4">
+        <CardContent className="p-6">
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-500" />
+              <h3 className="font-medium text-lg flex items-center gap-3">
+                <FileText className="h-6 w-6 text-blue-500" />
                 Search Results
               </h3>
               <Button
-                size="sm"
+                size="default"
                 disabled={selectedResults.length === 0}
                 onClick={handleGenerateReport}
+                className="gap-2"
               >
+                <FileText className="h-4 w-4" />
                 Generate Report ({selectedResults.length})
               </Button>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-gray-600">
               Select up to {MAX_SELECTIONS} results to analyze ({selectedResults.length} selected)
             </p>
-            <div className="space-y-3 max-h-[300px] overflow-y-auto">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4">
               {data.results.map((result) => (
-                <div key={result.id} className="flex items-start gap-3">
+                <div key={result.id} className="flex items-start gap-4 bg-gray-50 p-4 rounded-lg">
                   <div className="pt-1">
                     <Checkbox
                       checked={selectedResults.some((r) => r.id === result.id)}
@@ -83,17 +85,17 @@ export const SelectionNode = memo(function SelectionNode({
                       }
                     />
                   </div>
-                  <div>
+                  <div className="space-y-2 flex-1">
                     <a
                       href={result.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline font-medium"
+                      className="text-blue-600 hover:underline font-medium block"
                     >
                       {result.name}
                     </a>
-                    <p className="text-xs text-green-700 truncate">{result.url}</p>
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p className="text-sm text-green-700 truncate">{result.url}</p>
+                    <p className="text-gray-600 line-clamp-3">
                       {result.snippet}
                     </p>
                   </div>
