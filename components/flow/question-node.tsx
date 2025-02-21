@@ -3,53 +3,63 @@ import type { Node } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { HelpCircle, Loader2, AlertCircle } from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 
-type QuestionNodeData = {
-  question?: string
+type SearchTermsNodeData = {
+  searchTerms?: string[]
   loading: boolean
   error?: string
-  onApprove?: () => void
+  onApprove?: (term: string) => void
 }
 
-type QuestionNodeType = Node<QuestionNodeData>
+type SearchTermsNodeType = Node<SearchTermsNodeData>
 
-export const QuestionNode = memo(function QuestionNode({
+export const QuestionNode = memo(function SearchTermsNode({
   data,
 }: {
-  data: QuestionNodeData
+  data: SearchTermsNodeData
 }) {
   return (
-    <Card className="min-w-[400px]">
-      <Handle type="target" position={Position.Top} />
-      <CardContent className="p-4">
-        {data.loading ? (
-          <div className="flex items-center gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-            <p>Generating follow-up question...</p>
-          </div>
-        ) : data.error ? (
-          <div className="flex items-center gap-3 text-red-500">
-            <AlertCircle className="h-5 w-5" />
-            <p>{data.error}</p>
-          </div>
-        ) : data.question ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-blue-500" />
-              <h3 className="font-medium">Follow-up Question</h3>
+    <div className="w-[400px]">
+      <Card className="overflow-hidden">
+        <Handle type="target" position={Position.Top} />
+        <CardContent className="p-4">
+          {data.loading ? (
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+              <p>Generating search terms...</p>
             </div>
-            <p className="text-gray-600">{data.question}</p>
-            <Button
-              size="sm"
-              className="w-full"
-              onClick={data.onApprove}
-            >
-              Research This Question
-            </Button>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+          ) : data.error ? (
+            <div className="flex items-center gap-3 text-red-500">
+              <Search className="h-5 w-5" />
+              <p>{data.error}</p>
+            </div>
+          ) : data.searchTerms?.length ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-blue-500" />
+                <h3 className="font-medium">Follow-up Queries</h3>
+              </div>
+              <div className="space-y-2">
+                {data.searchTerms.map((term, index) => (
+                  <div key={index} className="flex items-center justify-between gap-2 p-2 rounded bg-gray-50">
+                    <p className="text-sm text-gray-600">{term}</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => data.onApprove?.(term)}
+                      className="h-8"
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+        <Handle type="source" position={Position.Bottom} />
+      </Card>
+    </div>
   )
 }) 

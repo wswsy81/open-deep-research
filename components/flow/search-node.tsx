@@ -17,21 +17,23 @@ export const SearchNode = memo(function SearchNode({
   data: SearchNodeData
 }) {
   return (
-    <Card className="min-w-[300px]">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          {data.loading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-          ) : (
-            <Search className="h-5 w-5 text-blue-500" />
-          )}
-          <div>
-            <h3 className="font-medium">Search Query</h3>
-            <p className="text-sm text-gray-600">{data.query}</p>
+    <div className="w-[70%] mx-auto">
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            {data.loading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+            ) : (
+              <Search className="h-5 w-5 text-blue-500" />
+            )}
+            <div>
+              <h3 className="font-medium">Search Query</h3>
+              <p className="text-sm text-gray-600">{data.query}</p>
+            </div>
           </div>
-        </div>
-      </CardContent>
-      <Handle type="source" position={Position.Bottom} />
-    </Card>
+        </CardContent>
+        <Handle type="source" position={Position.Bottom} />
+      </Card>
+    </div>
   )
 }) 

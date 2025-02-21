@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Report is required' }, { status: 400 })
     }
 
-    const prompt = `Based on the following research report, generate a follow-up question that would help deepen or expand the research in a meaningful way. The question should explore an important aspect that wasn't fully covered in the current report.
+    const prompt = `Based on the following research report, generate 3 focused search terms or phrases for further research. These should be concise keywords or phrases that would help explore important aspects not fully covered in the current report.
 
 Report Title: ${report.title}
 Summary: ${report.summary}
@@ -30,7 +30,16 @@ ${report.sections
   )
   .join('\n')}
 
-Generate a single, specific follow-up question that would yield valuable additional insights.`
+Generate exactly 3 search terms and return them in the following JSON format:
+{
+  "searchTerms": [
+    "first search term",
+    "second search term",
+    "third search term"
+  ]
+}
+
+The search terms should be specific and focused on unexplored aspects of the topic.`
 
     try {
       let response: string | null = null
@@ -66,18 +75,36 @@ Generate a single, specific follow-up question that would yield valuable additio
         throw new Error('No response from model')
       }
 
-      return NextResponse.json({ question: response })
+      try {
+        // Parse the JSON response
+        const jsonResponse = JSON.parse(response)
+        if (!Array.isArray(jsonResponse.searchTerms) || jsonResponse.searchTerms.length !== 3) {
+          throw new Error('Invalid search terms format')
+        }
+        
+        return NextResponse.json({ searchTerms: jsonResponse.searchTerms })
+      } catch (parseError) {
+        console.error('Failed to parse JSON response:', parseError)
+        // Fallback to line-based parsing if JSON parsing fails
+        const searchTerms = response
+          .split('\n')
+          .map(term => term.trim())
+          .filter(term => term.length > 0 && !term.includes('{') && !term.includes('}'))
+          .slice(0, 3)
+
+        return NextResponse.json({ searchTerms })
+      }
     } catch (error) {
       console.error('Model generation error:', error)
       return NextResponse.json(
-        { error: 'Failed to generate question' },
+        { error: 'Failed to generate search terms' },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error('Question generation error:', error)
+    console.error('Search terms generation error:', error)
     return NextResponse.json(
-      { error: 'Failed to generate question' },
+      { error: 'Failed to generate search terms' },
       { status: 500 }
     )
   }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import type { Node, Edge, Connection, NodeTypes, NodeChange, EdgeChange, XYPosition } from '@xyflow/react'
-import { ReactFlow, Controls, Background, addEdge } from '@xyflow/react'
+import { ReactFlow, Controls, Background, addEdge, applyNodeChanges, applyEdgeChanges } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,11 +28,12 @@ interface ResearchNode extends Node {
     loading?: boolean
     results?: SearchResult[]
     report?: Report
+    searchTerms?: string[]
     question?: string
     parentId?: string
     childIds?: string[]
     onGenerateReport?: (selectedResults: SearchResult[]) => void
-    onApprove?: () => void
+    onApprove?: (term?: string) => void
     onConsolidate?: () => void
     hasChildren?: boolean
     error?: string
@@ -45,40 +46,27 @@ export default function FlowPage() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes((nds) => {
-      return changes.reduce((acc: ResearchNode[], change) => {
-        if (change.type === 'position' && change.position) {
-          const pos = change.position as XYPosition
-          // Ensure position values are valid numbers
-          if (isNaN(pos.x) || isNaN(pos.y)) return acc
-          return acc.map((node) =>
-            node.id === change.id
-              ? { ...node, position: { x: Math.max(0, pos.x), y: Math.max(0, pos.y) } }
-              : node
-          )
-        }
-        return acc
-      }, nds)
-    })
-  }, [])
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    [setNodes]
+  )
 
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges((eds) => {
-      return changes.reduce((acc, change) => {
-        if (change.type === 'remove') {
-          return acc.filter((edge) => edge.id !== change.id)
-        }
-        return acc
-      }, eds)
-    })
-  }, [])
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    [setEdges]
+  )
 
-  const onConnect = useCallback((params: Connection) => {
-    setEdges((eds) => addEdge(params, eds))
-  }, [])
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    []
+  )
 
-  const createNode = (type: string, position: XYPosition, data: ResearchNode['data']): ResearchNode => ({
+  const createNode = (
+    type: string, 
+    position: XYPosition, 
+    data: ResearchNode['data'],
+    parentId?: string
+  ): ResearchNode => ({
     id: `${type}-${Date.now()}`,
     type,
     position: {
@@ -86,77 +74,55 @@ export default function FlowPage() {
       y: Math.max(0, Math.round(position.y))
     },
     data: { ...data, childIds: data.childIds || [] },
+    parentId, // This makes it a child node in the sub-flow
+    extent: 'parent', // Keeps the node within its parent boundaries
   })
 
-  const calculateNewNodePosition = (parentId?: string): XYPosition => {
-    if (!parentId) {
-      // For root nodes, start at a fixed position if no nodes exist
-      if (!nodes.length) return { x: 100, y: 100 }
-      
-      // Otherwise, place below the lowest node
-      const validNodes = nodes.filter(n => 
-        !isNaN(n.position.x) && 
-        !isNaN(n.position.y) && 
-        typeof n.position.x === 'number' && 
-        typeof n.position.y === 'number'
-      )
-      
-      if (!validNodes.length) return { x: 100, y: 100 }
-      
-      const maxY = Math.max(...validNodes.map(n => n.position.y))
-      return { x: 100, y: maxY + 200 }
-    }
-    
-    const parent = nodes.find(n => n.id === parentId)
-    if (!parent || isNaN(parent.position.x) || isNaN(parent.position.y)) {
-      return { x: 100, y: 100 }
-    }
-
-    const siblings = nodes.filter(n => 
-      n.data.parentId === parentId && 
-      !isNaN(n.position.x) && 
-      !isNaN(n.position.y)
-    )
-
-    return {
-      x: Math.max(0, parent.position.x + 400),
-      y: Math.max(0, parent.position.y + (siblings.length * 300))
-    }
-  }
+  const createGroupNode = (position: XYPosition, query: string): ResearchNode => ({
+    id: `group-${Date.now()}`,
+    type: 'group',
+    position,
+    style: {
+      width: 800,  // Reduced width to better contain nodes
+      height: 1000,
+      padding: 60,  // Increased padding
+      backgroundColor: 'rgba(240, 240, 240, 0.5)',
+      borderRadius: 8,
+    },
+    data: {
+      query,
+      childIds: [],
+    },
+  })
 
   const handleStartResearch = async (parentReportId?: string) => {
     if (!query.trim()) return
     
     setLoading(true)
     try {
-      const position = calculateNewNodePosition(parentReportId)
-      const searchNode = createNode('searchNode', position, { 
-        query, 
-        loading: true, 
-        parentId: parentReportId,
-        childIds: []
-      })
-      
-      setNodes(nds => {
-        if (parentReportId) {
-          return nds.map(node => 
-            node.id === parentReportId 
-              ? { ...node, data: { ...node.data, childIds: [...(node.data.childIds || []), searchNode.id] } }
-              : node
-          ).concat(searchNode)
-        }
-        return [...nds, searchNode]
-      })
-
-      if (parentReportId) {
-        setEdges(eds => [...eds, {
-          id: `edge-${parentReportId}-${searchNode.id}`,
-          source: parentReportId,
-          target: searchNode.id,
-          animated: true,
-          type: 'branch'
-        }])
+      // Calculate position for the group
+      const groupPosition = {
+        x: parentReportId ? nodes.length * 800 : 0, // Adjusted spacing between groups
+        y: 0
       }
+
+      // Create a group node for this research chain
+      const groupNode = createGroupNode(groupPosition, query)
+      
+      // Create search node within the group - centered horizontally
+      const searchNode = createNode(
+        'searchNode',
+        { x: 100, y: 80 }, // Adjusted to account for padding
+        { 
+          query, 
+          loading: true,
+          childIds: []
+        },
+        groupNode.id
+      )
+
+      // Add both nodes
+      setNodes(nds => [...nds, groupNode, searchNode])
 
       const response = await fetch('/api/search', {
         method: 'POST',
@@ -169,20 +135,40 @@ export default function FlowPage() {
       })
 
       if (!response.ok) throw new Error('Search failed')
-      const { webPages } = await response.json()
+      const data = await response.json()
+      console.log('Search response:', data)
 
-      const selectionPosition = { 
-        x: position.x, 
-        y: position.y + 200 
+      if (!data.webPages?.value?.length) {
+        throw new Error('No search results found')
       }
-      
-      const selectionNode = createNode('selectionNode', selectionPosition, {
-        results: webPages?.value || [],
-        onGenerateReport: (selected) => handleGenerateReport(selected, searchNode.id),
-        parentId: searchNode.id,
-        childIds: []
-      })
 
+      // Transform search results to match expected format
+      const searchResults = data.webPages.value.map((result: any) => ({
+        id: result.id || `result-${Date.now()}-${Math.random()}`,
+        url: result.url,
+        name: result.name || result.title,
+        snippet: result.snippet,
+        isCustomUrl: false
+      }))
+
+      console.log('Transformed search results:', searchResults)
+
+      // Create selection node within the group - centered horizontally
+      const selectionNode = createNode(
+        'selectionNode',
+        { x: 100, y: 200 }, // Adjusted to account for padding
+        {
+          results: searchResults,
+          onGenerateReport: (selected) => {
+            console.log('Generate report clicked with:', selected)
+            handleGenerateReport(selected, searchNode.id, groupNode.id)
+          },
+          childIds: []
+        },
+        groupNode.id
+      )
+
+      // Update nodes and add edge
       setNodes(nds => {
         const updatedNodes = nds.map(node => 
           node.id === searchNode.id 
@@ -201,37 +187,49 @@ export default function FlowPage() {
     } catch (error) {
       console.error('Search error:', error)
       setNodes(nds => nds.map(node => 
-        node.data.loading ? { ...node, data: { ...node.data, loading: false, error: 'Search failed' } } : node
+        node.data.loading ? { ...node, data: { ...node.data, loading: false, error: error instanceof Error ? error.message : 'Search failed' } } : node
       ))
     } finally {
       setLoading(false)
     }
   }
 
-  const handleGenerateReport = async (selectedResults: SearchResult[], searchNodeId: string) => {
-    const searchNode = nodes.find(n => n.id === searchNodeId)
-    if (!searchNode?.data.query || isNaN(searchNode.position.x) || isNaN(searchNode.position.y)) return
-
-    const reportPosition = calculateNewNodePosition(searchNodeId)
-    const reportNode = createNode('reportNode', reportPosition, {
-      loading: true,
-      parentId: searchNodeId,
-      childIds: [],
-      hasChildren: false
-    })
-
-    const questionPosition = { 
-      x: Math.max(0, reportPosition.x), 
-      y: Math.max(0, reportPosition.y + 200)
-    }
+  const handleGenerateReport = async (
+    selectedResults: SearchResult[], 
+    searchNodeId: string,
+    groupId: string
+  ) => {
+    console.log('handleGenerateReport called with:', { selectedResults, searchNodeId, groupId })
     
-    const questionNode = createNode('questionNode', questionPosition, { 
-      loading: true,
-      parentId: reportNode.id,
-      childIds: []
-    })
+    if (selectedResults.length === 0) {
+      console.error('No results selected')
+      return
+    }
 
-    setNodes(nds => [...nds, reportNode, questionNode])
+    // Create report and search terms nodes
+    const reportNode = createNode(
+      'reportNode',
+      { x: 100, y: 400 },
+      {
+        loading: true,
+        hasChildren: false
+      },
+      groupId
+    )
+
+    const searchTermsNode = createNode(
+      'questionNode', // Keep the type as questionNode for now since we're reusing the component
+      { x: 100, y: 600 },
+      { 
+        loading: true
+      },
+      groupId
+    )
+
+    // Add nodes first
+    setNodes(nds => [...nds, reportNode, searchTermsNode])
+
+    // Add edges to connect nodes
     setEdges(eds => [
       ...eds,
       {
@@ -241,9 +239,9 @@ export default function FlowPage() {
         animated: true
       },
       {
-        id: `edge-${reportNode.id}-${questionNode.id}`,
+        id: `edge-${reportNode.id}-${searchTermsNode.id}`,
         source: reportNode.id,
-        target: questionNode.id,
+        target: searchTermsNode.id,
         animated: true
       }
     ])
@@ -258,6 +256,7 @@ export default function FlowPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: result.url }),
             })
+            if (!response.ok) throw new Error('Failed to fetch content')
             const { content } = await response.json()
             return { 
               url: result.url, 
@@ -275,23 +274,32 @@ export default function FlowPage() {
         })
       )
 
+      // Filter out any results without content
+      const validResults = contentResults.filter(r => r.content?.trim())
+      if (validResults.length === 0) {
+        throw new Error('No valid content found in selected results')
+      }
+
       // Generate report
       const reportResponse = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          selectedResults: contentResults,
+          selectedResults: validResults,
           sources: selectedResults,
-          prompt: `${searchNode.data.query}. Provide comprehensive analysis.`,
+          prompt: 'Provide comprehensive analysis of the selected sources.',
           platformModel: DEFAULT_MODEL,
         }),
       })
 
-      if (!reportResponse.ok) throw new Error('Failed to generate report')
-      const report: Report = await reportResponse.json()
+      if (!reportResponse.ok) {
+        throw new Error('Failed to generate report')
+      }
+      
+      const report = await reportResponse.json()
 
-      // Generate follow-up question
-      const questionResponse = await fetch('/api/generate-question', {
+      // Generate search terms
+      const searchTermsResponse = await fetch('/api/generate-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -300,9 +308,13 @@ export default function FlowPage() {
         }),
       })
 
-      if (!questionResponse.ok) throw new Error('Failed to generate question')
-      const { question } = await questionResponse.json()
+      if (!searchTermsResponse.ok) {
+        throw new Error('Failed to generate search terms')
+      }
+      
+      const { searchTerms } = await searchTermsResponse.json()
 
+      // Update nodes with generated content
       setNodes(nds => nds.map(node => {
         if (node.id === reportNode.id) {
           return {
@@ -310,34 +322,45 @@ export default function FlowPage() {
             data: {
               ...node.data,
               report,
-              loading: false,
-              onConsolidate: () => consolidateReports(node.id)
+              loading: false
             }
           }
         }
-        if (node.id === questionNode.id) {
+        if (node.id === searchTermsNode.id) {
           return {
             ...node,
             data: {
               ...node.data,
-              question,
+              searchTerms,
               loading: false,
-              onApprove: () => {
-                setQuery(question)
-                handleStartResearch(reportNode.id)
+              onApprove: (term?: string) => {
+                if (term) {
+                  setQuery(term)
+                  handleStartResearch()
+                }
               }
             }
           }
         }
         return node
       }))
+
     } catch (error) {
       console.error('Report generation error:', error)
-      setNodes(nds => nds.map(node => 
-        (node.id === reportNode.id || node.id === questionNode.id)
-          ? { ...node, data: { ...node.data, loading: false, error: 'Generation failed' } }
-          : node
-      ))
+      // Update error state for both nodes
+      setNodes(nds => nds.map(node => {
+        if (node.id === reportNode.id || node.id === searchTermsNode.id) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              loading: false,
+              error: error instanceof Error ? error.message : 'Generation failed'
+            }
+          }
+        }
+        return node
+      }))
     }
   }
 
@@ -368,22 +391,19 @@ Provide a cohesive analysis that shows how the research evolved and what key ins
       const consolidated: Report = await response.json()
 
       const rootNode = nodes.find(n => n.id === reportId)
-      if (!rootNode || isNaN(rootNode.position.x) || isNaN(rootNode.position.y)) {
-        throw new Error('Root node not found or has invalid position')
-      }
+      if (!rootNode?.parentId) throw new Error('Root node not found or has no parent')
 
-      const consolidatedPosition = {
-        x: Math.max(0, rootNode.position.x + 300),
-        y: Math.max(0, rootNode.position.y)
-      }
-
-      const consolidatedNode = createNode('reportNode', consolidatedPosition, {
-        report: consolidated,
-        loading: false,
-        parentId: reportId,
-        childIds: [],
-        hasChildren: false
-      })
+      const consolidatedNode = createNode(
+        'reportNode',
+        { x: 50, y: 800 },
+        {
+          report: consolidated,
+          loading: false,
+          childIds: [],
+          hasChildren: false
+        },
+        rootNode.parentId
+      )
 
       setNodes(nds => [...nds, consolidatedNode])
       setEdges(eds => [...eds, {
