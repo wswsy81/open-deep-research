@@ -146,7 +146,7 @@ export default function FlowPage() {
     position,
     style: {
       width: 800,
-      height: 2000,
+      height: 1600,
       padding: 60,
       backgroundColor: 'rgba(240, 240, 240, 0.5)',
       borderRadius: 8,
