@@ -3,8 +3,6 @@
 <div align="center">
   <img src="demo.gif" alt="Open Deep Research Demo" width="800"/>
   <p><em>Note: Demo is sped up for brevity</em></p>
-  
-  <p><a href="https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f">🎥 Watch the full demo video on Loom</a></p>
 </div>
 
 A powerful open-source research assistant that generates comprehensive AI-powered reports from web search results. Unlike other Deep Research solutions, it provides seamless integration with multiple AI platforms including Google, OpenAI, Anthropic, DeepSeek, and even local models - giving you the freedom to choose the perfect AI model for your specific research requirements.
@@ -44,6 +42,10 @@ The Knowledge Base feature allows you to:
 - Build a personal research library over time
 
 ### Flow: Deep Research & Report Consolidation
+
+<div align="center">
+  <p><a href="https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f">🎥 Watch the full demo video on Loom</a></p>
+</div>
 
 The Flow feature enables deep, recursive research by allowing you to:
 
