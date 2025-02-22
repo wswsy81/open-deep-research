@@ -4,14 +4,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FileText } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import type { SearchResult } from '@/types'
+import { CONFIG } from '@/lib/config'
 
 type SelectionNodeData = {
   results: SearchResult[]
-  onGenerateReport: (selectedResults: SearchResult[]) => void
+  onGenerateReport: (selectedResults: SearchResult[], prompt: string) => void
 }
 
-const MAX_SELECTIONS = 3
+const MAX_SELECTIONS = CONFIG.search.maxSelectableResults
 
 export const SelectionNode = memo(function SelectionNode({
   data,
@@ -19,6 +21,7 @@ export const SelectionNode = memo(function SelectionNode({
   data: SelectionNodeData
 }) {
   const [selectedResults, setSelectedResults] = useState<SearchResult[]>([])
+  const [prompt, setPrompt] = useState('')
 
   // Reset selection when results change
   useEffect(() => {
@@ -42,7 +45,7 @@ export const SelectionNode = memo(function SelectionNode({
       console.warn('No results selected')
       return
     }
-    data.onGenerateReport(selectedResults)
+    data.onGenerateReport(selectedResults, prompt)
   }
 
   return (
@@ -70,6 +73,13 @@ export const SelectionNode = memo(function SelectionNode({
               Select up to {MAX_SELECTIONS} results to analyze (
               {selectedResults.length} selected)
             </p>
+            {selectedResults.length > 0 && (
+              <Input
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder='What would you like to know about these sources?'
+              />
+            )}
             <div className='space-y-4 max-h-[400px] overflow-y-auto pr-4 nowheel nodrag'>
               {data.results.map((result) => (
                 <div

@@ -73,7 +73,7 @@ interface ResearchNode extends Node {
     question?: string
     parentId?: string
     childIds?: string[]
-    onGenerateReport?: (selectedResults: SearchResult[]) => void
+    onGenerateReport?: (selectedResults: SearchResult[], prompt: string) => void
     onApprove?: (term?: string) => void
     onConsolidate?: () => void
     hasChildren?: boolean
@@ -256,9 +256,9 @@ export default function FlowPage() {
         { x: 100, y: 200 },
         {
           results: searchResults,
-          onGenerateReport: (selected) => {
-            console.log('Generate report clicked with:', selected)
-            handleGenerateReport(selected, searchNode.id, groupNode.id)
+          onGenerateReport: (selected, prompt) => {
+            console.log('Generate report clicked with:', selected, prompt)
+            handleGenerateReport(selected, searchNode.id, groupNode.id, prompt)
           },
           childIds: [],
         },
@@ -308,12 +308,14 @@ export default function FlowPage() {
   const handleGenerateReport = async (
     selectedResults: SearchResult[],
     searchNodeId: string,
-    groupId: string
+    groupId: string,
+    prompt: string
   ) => {
     console.log('handleGenerateReport called with:', {
       selectedResults,
       searchNodeId,
       groupId,
+      prompt,
     })
 
     if (selectedResults.length === 0) {
@@ -396,7 +398,8 @@ export default function FlowPage() {
         body: JSON.stringify({
           selectedResults: validResults,
           sources: selectedResults,
-          prompt: 'Provide comprehensive analysis of the selected sources.',
+          prompt:
+            prompt || 'Provide comprehensive analysis of the selected sources.',
           platformModel: selectedModel,
         }),
       })
