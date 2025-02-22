@@ -124,7 +124,6 @@ export default function Home() {
     },
   })
 
-  const { addReport } = useKnowledgeBase()
   const { toast } = useToast()
 
   // Add form ref
