@@ -20,7 +20,7 @@ const zenDots = Zen_Dots({
 export const metadata: Metadata = {
   title: 'Open Deep Research',
   description:
-    'Open source alternative to Gemini Deep Research. Generate reports with AI based on search results.',
+    'Open source alternative to Deep Research. Generate reports with AI based on search results.',
 }
 
 export default function RootLayout({

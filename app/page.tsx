@@ -467,9 +467,9 @@ export default function Home() {
             const response = await fetch('/api/optimize-research', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
+              body: JSON.stringify({
                 prompt: state.reportPrompt,
-                platformModel: state.selectedModel 
+                platformModel: state.selectedModel,
               }),
             })
             if (!response.ok) {
@@ -559,7 +559,7 @@ export default function Home() {
                 url: r.url,
               })),
               isTestQuery: query.toLowerCase() === 'test',
-              platformModel: state.selectedModel
+              platformModel: state.selectedModel,
             }),
           })
           if (!response.ok) {
@@ -826,8 +826,8 @@ export default function Home() {
           </h1>
           <div className='text-center space-y-3 mb-8'>
             <p className='text-gray-600'>
-              Open source alternative to Gemini Deep Research. Generate reports
-              with AI based on search results.
+              Open source alternative to Deep Research. Generate reports with AI
+              based on search results.
             </p>
             <div className='flex flex-wrap justify-center items-center gap-2'>
               <Button
