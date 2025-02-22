@@ -1,5 +1,4 @@
 import { memo, useState, useEffect } from 'react'
-import type { Node } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,8 +10,6 @@ type SelectionNodeData = {
   results: SearchResult[]
   onGenerateReport: (selectedResults: SearchResult[]) => void
 }
-
-type SelectionNodeType = Node<SelectionNodeData>
 
 const MAX_SELECTIONS = 3
 
@@ -49,33 +46,37 @@ export const SelectionNode = memo(function SelectionNode({
   }
 
   return (
-    <div className="w-auto max-w-[600px] mx-auto">
+    <div className='w-auto max-w-[600px] mx-auto'>
       <Card>
-        <Handle type="target" position={Position.Top} />
-        <CardContent className="p-6">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium text-lg flex items-center gap-3">
-                <FileText className="h-6 w-6 text-blue-500" />
+        <Handle type='target' position={Position.Top} />
+        <CardContent className='p-6'>
+          <div className='space-y-6'>
+            <div className='flex items-center justify-between'>
+              <h3 className='font-medium text-lg flex items-center gap-3'>
+                <FileText className='h-6 w-6 text-blue-500' />
                 Search Results
               </h3>
               <Button
-                size="default"
+                size='default'
                 disabled={selectedResults.length === 0}
                 onClick={handleGenerateReport}
-                className="gap-2"
+                className='gap-2'
               >
-                <FileText className="h-4 w-4" />
+                <FileText className='h-4 w-4' />
                 Generate Report ({selectedResults.length})
               </Button>
             </div>
-            <p className="text-gray-600">
-              Select up to {MAX_SELECTIONS} results to analyze ({selectedResults.length} selected)
+            <p className='text-gray-600'>
+              Select up to {MAX_SELECTIONS} results to analyze (
+              {selectedResults.length} selected)
             </p>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4">
+            <div className='space-y-4 max-h-[400px] overflow-y-auto pr-4 nowheel nodrag'>
               {data.results.map((result) => (
-                <div key={result.id} className="flex items-start gap-4 bg-gray-50 p-4 rounded-lg">
-                  <div className="pt-1">
+                <div
+                  key={result.id}
+                  className='flex items-start gap-4 bg-gray-50 p-4 rounded-lg'
+                >
+                  <div className='pt-1'>
                     <Checkbox
                       checked={selectedResults.some((r) => r.id === result.id)}
                       onCheckedChange={() => handleSelect(result)}
@@ -85,17 +86,19 @@ export const SelectionNode = memo(function SelectionNode({
                       }
                     />
                   </div>
-                  <div className="space-y-2 flex-1">
+                  <div className='space-y-2 flex-1'>
                     <a
                       href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline font-medium block"
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='text-blue-600 hover:underline font-medium block'
                     >
                       {result.name}
                     </a>
-                    <p className="text-sm text-green-700 truncate">{result.url}</p>
-                    <p className="text-gray-600 line-clamp-3">
+                    <p className='text-sm text-green-700 truncate'>
+                      {result.url}
+                    </p>
+                    <p className='text-gray-600 line-clamp-3'>
                       {result.snippet}
                     </p>
                   </div>
@@ -104,8 +107,8 @@ export const SelectionNode = memo(function SelectionNode({
             </div>
           </div>
         </CardContent>
-        <Handle type="source" position={Position.Bottom} />
+        <Handle type='source' position={Position.Bottom} />
       </Card>
     </div>
   )
-}) 
+})
