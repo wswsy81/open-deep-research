@@ -16,6 +16,7 @@ interface ReportActionsProps {
   size?: 'default' | 'sm'
   variant?: 'default' | 'outline'
   className?: string
+  hideKnowledgeBase?: boolean
 }
 
 export function ReportActions({
@@ -24,6 +25,7 @@ export function ReportActions({
   size = 'sm',
   variant = 'outline',
   className = '',
+  hideKnowledgeBase = false,
 }: ReportActionsProps) {
   const { addReport } = useKnowledgeBase()
   const { toast } = useToast()
@@ -69,15 +71,17 @@ export function ReportActions({
 
   return (
     <div className={`flex gap-2 ${className}`}>
-      <Button
-        variant={variant}
-        size={size}
-        className='gap-2'
-        onClick={handleSaveToKnowledgeBase}
-      >
-        <Brain className='h-4 w-4' />
-        Save to Knowledge Base
-      </Button>
+      {!hideKnowledgeBase && (
+        <Button
+          variant={variant}
+          size={size}
+          className='gap-2'
+          onClick={handleSaveToKnowledgeBase}
+        >
+          <Brain className='h-4 w-4' />
+          Save to Knowledge Base
+        </Button>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant={variant} size={size} className='gap-2'>
@@ -99,4 +103,4 @@ export function ReportActions({
       </DropdownMenu>
     </div>
   )
-} 
+}

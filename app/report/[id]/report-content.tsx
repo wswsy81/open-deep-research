@@ -11,6 +11,7 @@ import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
 import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { ReportActions } from '@/components/report-actions'
 
 export function ReportContent({ id }: any) {
   const router = useRouter()
@@ -70,15 +71,23 @@ export function ReportContent({ id }: any) {
             <ArrowLeft className='h-4 w-4' />
             Back
           </Button>
-          <Button
-            variant='destructive'
-            size='sm'
-            onClick={() => setShowDeleteConfirm(true)}
-            className='gap-2'
-          >
-            <Trash2 className='h-4 w-4' />
-            Delete Report
-          </Button>
+          <div className='flex gap-2'>
+            <ReportActions
+              report={report?.report}
+              prompt={report?.query}
+              size='sm'
+              hideKnowledgeBase={true}
+            />
+            <Button
+              variant='destructive'
+              size='sm'
+              onClick={() => setShowDeleteConfirm(true)}
+              className='gap-2'
+            >
+              <Trash2 className='h-4 w-4' />
+              Delete Report
+            </Button>
+          </div>
         </div>
 
         {showDeleteConfirm && (
