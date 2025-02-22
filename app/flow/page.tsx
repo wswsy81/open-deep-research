@@ -417,7 +417,6 @@ export default function FlowPage() {
                 onApprove: (term?: string) => {
                   if (term) {
                     setQuery(term)
-                    handleStartResearch()
                   }
                 },
               },
