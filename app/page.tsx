@@ -489,7 +489,9 @@ export default function Home() {
           agentInsights: [
             ...prev.agentInsights,
             `Research strategy: ${explanation}`,
-            `Suggested structure: ${suggestedStructure.join(' → ')}`,
+            ...(Array.isArray(suggestedStructure) 
+              ? [`Suggested structure: ${suggestedStructure.join(' → ')}`]
+              : []),
           ],
         }))
 
