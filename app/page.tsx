@@ -9,7 +9,6 @@ import { Separator } from '@/components/ui/separator'
 import {
   Search,
   FileText,
-  Download,
   Plus,
   X,
   ChevronDown,

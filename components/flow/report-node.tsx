@@ -1,6 +1,6 @@
 import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, ChevronDown, FileText } from 'lucide-react'
+import { Loader2, ChevronDown } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ReportActions } from '@/components/report-actions'
