@@ -28,10 +28,6 @@ Open Deep Research combines powerful tools to streamline research and report cre
 - ⚡ Rate limiting for stability
 - 📱 Responsive design
 
-## Demo
-
-Try it out at: [Open Deep Research](https://opendeepresearch.vercel.app/)
-
 ### Knowledge Base
 
 The Knowledge Base feature allows you to:
@@ -40,6 +36,44 @@ The Knowledge Base feature allows you to:
 - Access your research history
 - Quickly load and review past reports
 - Build a personal research library over time
+
+### Flow: Deep Research & Report Consolidation
+
+<div align="center">
+  <p><a href="https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f">🎥 Watch the full demo video on Loom</a></p>
+</div>
+
+The Flow feature enables deep, recursive research by allowing you to:
+
+- Create visual research flows with interconnected reports
+- Generate follow-up queries based on initial research findings
+- Dive deeper into specific topics through recursive exploration
+- Consolidate multiple related reports into comprehensive final reports
+
+Key capabilities:
+
+- 🌳 **Deep Research Trees**: Start with a topic and automatically generate relevant follow-up questions to explore deeper aspects
+- 🔄 **Recursive Exploration**: Follow research paths down various "rabbit holes" by generating new queries from report insights
+- 🔍 **Visual Research Mapping**: See your entire research journey mapped out visually, showing connections between different research paths
+- 🎯 **Smart Query Generation**: AI-powered generation of follow-up research questions based on report content
+- 🔗 **Report Consolidation**: Select multiple related reports and combine them into a single, comprehensive final report
+- 📊 **Interactive Interface**: Drag, arrange, and organize your research flows visually
+
+The Flow interface makes it easy to:
+
+1. Start with an initial research query
+2. Review and select relevant search results
+3. Generate detailed reports from selected sources
+4. Get AI-suggested follow-up questions for deeper exploration
+5. Create new research branches from those questions
+6. Finally, consolidate related reports into comprehensive summaries
+
+This feature is perfect for:
+
+- Academic research requiring deep exploration of interconnected topics
+- Market research needing multiple angles of investigation
+- Complex topic analysis requiring recursive deep dives
+- Any research task where you need to "follow the thread" of information
 
 ## Configuration
 
@@ -308,6 +342,7 @@ You can run the application either directly on your machine or using Docker.
 #### Option 1: Traditional Setup
 
 1. Start the development server:
+
 ```bash
 npm run dev
 # or
@@ -325,11 +360,13 @@ bun dev
 If you prefer using Docker, you can build and run the application in a container after setting up your environment variables:
 
 1. Build the Docker image:
+
 ```bash
 docker build -t open-deep-research:v1 .
 ```
 
 2. Run the container:
+
 ```bash
 docker run -p 3000:3000 open-deep-research
 ```
@@ -399,13 +436,17 @@ You'll need two components to use Google Custom Search:
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [shadcn/ui](https://ui.shadcn.com/) - UI components
-- [Google Gemini](https://deepmind.google/technologies/gemini/) - AI model
 - [JinaAI](https://jina.ai/) - Content extraction
 - [Azure Bing Search](https://www.microsoft.com/en-us/bing/apis/bing-web-search-api) - Web search
+- [Google Custom Search](https://developers.google.com/custom-search/v1/overview) - Web search
 - [Upstash Redis](https://upstash.com/) - Rate limiting
 - [jsPDF](https://github.com/parallax/jsPDF) & [docx](https://github.com/dolanmiu/docx) - Document generation
 
 The app will use the configured provider (default: Google) for all searches. You can switch providers by updating the `provider` value in the config file.
+
+## Demo
+
+Try it out at: [Open Deep Research](https://opendeepresearch.vercel.app/)
 
 ## Contributing
 

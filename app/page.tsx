@@ -9,13 +9,13 @@ import { Separator } from '@/components/ui/separator'
 import {
   Search,
   FileText,
-  Download,
   Plus,
   X,
   ChevronDown,
   Brain,
   Code,
   Loader2,
+  Share,
 } from 'lucide-react'
 import {
   Select,
@@ -25,12 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import type {
   SearchResult,
   RankingResult,
@@ -46,9 +40,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
 import { useToast } from '@/hooks/use-toast'
 import { KnowledgeBaseSidebar } from '@/components/knowledge-base-sidebar'
+import { ReportActions } from '@/components/report-actions'
 
 const timeFilters = [
   { value: 'all', label: 'Any time' },
@@ -129,7 +123,6 @@ export default function Home() {
     },
   })
 
-  const { addReport } = useKnowledgeBase()
   const { toast } = useToast()
 
   // Add form ref
@@ -467,9 +460,9 @@ export default function Home() {
             const response = await fetch('/api/optimize-research', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
+              body: JSON.stringify({
                 prompt: state.reportPrompt,
-                platformModel: state.selectedModel 
+                platformModel: state.selectedModel,
               }),
             })
             if (!response.ok) {
@@ -489,7 +482,9 @@ export default function Home() {
           agentInsights: [
             ...prev.agentInsights,
             `Research strategy: ${explanation}`,
-            `Suggested structure: ${suggestedStructure.join(' → ')}`,
+            ...(Array.isArray(suggestedStructure)
+              ? [`Suggested structure: ${suggestedStructure.join(' → ')}`]
+              : []),
           ],
         }))
 
@@ -559,7 +554,7 @@ export default function Home() {
                 url: r.url,
               })),
               isTestQuery: query.toLowerCase() === 'test',
-              platformModel: state.selectedModel
+              platformModel: state.selectedModel,
             }),
           })
           if (!response.ok) {
@@ -765,420 +760,462 @@ export default function Home() {
     }))
   }, [])
 
-  const handleDownload = useCallback(
-    async (format: 'pdf' | 'docx' | 'txt') => {
-      if (!state.report) return
-
-      try {
-        const response = await fetch('/api/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            report: state.report,
-            format,
-          }),
-        })
-
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `report.${format}`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      } catch (error) {
-        handleError(error, 'Download failed')
-      }
-    },
-    [state.report, handleError]
-  )
-
-  const handleSaveToKnowledgeBase = useCallback(() => {
-    if (!state.report) return
-    const success = addReport(state.report, state.reportPrompt)
-    if (success) {
-      toast({
-        title: 'Saved to Knowledge Base',
-        description: 'The report has been saved for future reference',
-      })
-    }
-  }, [state.report, state.reportPrompt, addReport, toast])
-
   return (
     <div className='min-h-screen bg-white p-4 sm:p-8'>
-      <KnowledgeBaseSidebar
-        open={state.sidebarOpen}
-        onOpenChange={(open) => updateState({ sidebarOpen: open })}
-      />
-      <main className='max-w-4xl mx-auto space-y-8'>
-        <div className='mb-3'>
-          <h1 className='mb-2 text-center text-gray-800 flex items-center justify-center gap-2'>
-            <img
-              src='/apple-icon.png'
-              alt='Open Deep Research'
-              className='w-6 h-6 sm:w-8 sm:h-8 rounded-full'
-            />
-            <span className='text-xl sm:text-3xl font-bold font-heading'>
-              Open Deep Research
-            </span>
-          </h1>
-          <div className='text-center space-y-3 mb-8'>
-            <p className='text-gray-600'>
-              Open source alternative to Gemini Deep Research. Generate reports
-              with AI based on search results.
-            </p>
-            <div className='flex flex-wrap justify-center items-center gap-2'>
-              <Button
-                variant='default'
-                size='sm'
-                onClick={() => updateState({ sidebarOpen: true })}
-                className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
-              >
-                <Brain className='h-4 w-4' />
-                View Knowledge Base
-              </Button>
-              <Button
-                asChild
-                variant='outline'
-                size='sm'
-                className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
-              >
-                <a
-                  href='https://github.com/btahir/open-deep-research'
-                  target='_blank'
-                  rel='noopener noreferrer'
+      <div className='fixed inset-x-0 top-0 bg-blue-50 border-b border-blue-100 p-4 flex flex-col sm:flex-row items-center justify-center gap-4 z-50'>
+        <p className='text-blue-800 text-center'>
+          <span className='font-semibold'>New:</span> Try our Visual Flow
+          feature for deep, recursive research
+        </p>
+        <Button
+          asChild
+          variant='default'
+          size='sm'
+          className='whitespace-nowrap bg-blue-600 hover:bg-blue-700'
+        >
+          <a href='/flow'>Try Flow →</a>
+        </Button>
+      </div>
+      <div className='pt-20'>
+        <KnowledgeBaseSidebar
+          open={state.sidebarOpen}
+          onOpenChange={(open) => updateState({ sidebarOpen: open })}
+        />
+        <main className='max-w-4xl mx-auto space-y-8'>
+          <div className='mb-3'>
+            <h1 className='mb-2 text-center text-gray-800 flex items-center justify-center gap-2'>
+              <img
+                src='/apple-icon.png'
+                alt='Open Deep Research'
+                className='w-6 h-6 sm:w-8 sm:h-8 rounded-full'
+              />
+              <span className='text-xl sm:text-3xl font-bold font-heading'>
+                Open Deep Research
+              </span>
+            </h1>
+            <div className='text-center space-y-3 mb-8'>
+              <p className='text-gray-600'>
+                Open source alternative to Deep Research. Generate reports with
+                AI based on search results.
+              </p>
+              <div className='flex flex-wrap justify-center items-center gap-2'>
+                <Button
+                  variant='default'
+                  size='sm'
+                  onClick={() => updateState({ sidebarOpen: true })}
+                  className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
                 >
-                  <Code className='h-4 w-4' />
-                  View Code
-                </a>
-              </Button>
-            </div>
-            <div className='flex justify-center items-center'>
-              <div className='flex items-center space-x-2'>
-                <Checkbox
-                  id='agent-mode'
-                  checked={state.isAgentMode}
-                  className='w-4 h-4'
-                  onCheckedChange={(checked) =>
-                    updateState({ isAgentMode: checked as boolean })
-                  }
-                />
-                <label
-                  htmlFor='agent-mode'
-                  className='text-xs sm:text-sm font-medium leading-none text-muted-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
+                  <Brain className='h-4 w-4' />
+                  View Knowledge Base
+                </Button>
+                <Button
+                  asChild
+                  variant='default'
+                  size='sm'
+                  className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
                 >
-                  Agent Mode (Automatic search and report generation)
-                </label>
-              </div>
-            </div>
-          </div>
-          {state.status.agentStep !== 'idle' && (
-            <div className='mb-4 p-4 bg-blue-50 rounded-lg'>
-              <div className='flex items-center gap-3 mb-3'>
-                <Loader2 className='h-5 w-5 text-blue-600 animate-spin' />
-                <h3 className='font-semibold text-blue-800'>Agent Progress</h3>
-              </div>
-
-              <div className='space-y-2'>
-                <div className='flex items-center gap-2 text-sm'>
-                  <span className='font-medium'>Current Step:</span>
-                  <span className='capitalize'>{state.status.agentStep}</span>
-                </div>
-
-                {state.status.agentInsights.length > 0 && (
-                  <Collapsible>
-                    <CollapsibleTrigger className='text-sm text-blue-600 hover:underline flex items-center gap-1'>
-                      Show Research Details <ChevronDown className='h-4 w-4' />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className='mt-2 space-y-2 text-sm text-gray-600'>
-                      {state.status.agentInsights.map((insight, idx) => (
-                        <div key={idx} className='flex gap-2'>
-                          <span className='text-gray-400'>•</span>
-                          {insight}
-                        </div>
-                      ))}
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
-              </div>
-            </div>
-          )}
-          <form
-            ref={formRef}
-            onSubmit={state.isAgentMode ? handleAgentSearch : handleSearch}
-            className='space-y-4'
-          >
-            {!state.isAgentMode ? (
-              <>
-                <div className='flex flex-col sm:flex-row gap-2'>
-                  <div className='relative flex-1'>
-                    <Input
-                      type='text'
-                      value={state.query}
-                      onChange={(e) => updateState({ query: e.target.value })}
-                      placeholder='Enter your search query...'
-                      className='pr-8'
-                    />
-                    <Search className='absolute right-2 top-2 h-5 w-5 text-gray-400' />
-                  </div>
-
-                  <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
-                    <div className='flex gap-2 w-full sm:w-auto'>
-                      <Select
-                        value={state.timeFilter}
-                        onValueChange={(value) =>
-                          updateState({ timeFilter: value })
-                        }
-                      >
-                        <SelectTrigger className='flex-1 sm:flex-initial sm:w-[140px]'>
-                          <SelectValue placeholder='Select time range' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeFilters.map((filter) => (
-                            <SelectItem key={filter.value} value={filter.value}>
-                              {filter.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Select
-                        value={state.selectedModel}
-                        onValueChange={(value) =>
-                          updateState({ selectedModel: value })
-                        }
-                        disabled={platformModels.length === 0}
-                      >
-                        <SelectTrigger className='flex-1 sm:flex-initial sm:w-[200px]'>
-                          <SelectValue
-                            placeholder={
-                              platformModels.length === 0
-                                ? 'No models available'
-                                : 'Select model'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {platformModels.map((model) => (
-                            <SelectItem
-                              key={model.value}
-                              value={model.value}
-                              disabled={model.disabled}
-                              className={
-                                model.disabled
-                                  ? 'text-gray-400 cursor-not-allowed'
-                                  : ''
-                              }
-                            >
-                              {model.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Button
-                      type='submit'
-                      disabled={state.status.loading}
-                      className='w-full sm:w-auto'
-                    >
-                      {state.status.loading ? 'Searching...' : 'Search'}
-                    </Button>
-                  </div>
-                </div>
-                <div className='flex gap-2'>
-                  <Input
-                    type='url'
-                    value={state.newUrl}
-                    onChange={(e) => updateState({ newUrl: e.target.value })}
-                    placeholder='Add custom URL...'
-                    className='flex-1'
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleAddCustomUrl(e)
-                      }
-                    }}
-                  />
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='icon'
-                    onClick={handleAddCustomUrl}
+                  <a href='/flow'>
+                    <Share className='h-4 w-4' />
+                    Visual Flow
+                  </a>
+                </Button>
+                <Button
+                  asChild
+                  variant='outline'
+                  size='sm'
+                  className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
+                >
+                  <a
+                    href='https://github.com/btahir/open-deep-research'
+                    target='_blank'
+                    rel='noopener noreferrer'
                   >
-                    <Plus className='h-4 w-4' />
-                  </Button>
+                    <Code className='h-4 w-4' />
+                    View Code
+                  </a>
+                </Button>
+              </div>
+              <div className='flex justify-center items-center'>
+                <div className='flex items-center space-x-2'>
+                  <Checkbox
+                    id='agent-mode'
+                    checked={state.isAgentMode}
+                    className='w-4 h-4'
+                    onCheckedChange={(checked) =>
+                      updateState({ isAgentMode: checked as boolean })
+                    }
+                  />
+                  <label
+                    htmlFor='agent-mode'
+                    className='text-xs sm:text-sm font-medium leading-none text-muted-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
+                  >
+                    Agent Mode (Automatic search and report generation)
+                  </label>
                 </div>
-              </>
-            ) : (
-              <div className='space-y-4 sm:space-y-6 lg:space-y-0'>
-                <div className='flex flex-col sm:flex-row lg:items-center gap-2'>
-                  <div className='relative flex-1'>
-                    <Input
-                      value={state.query || state.reportPrompt}
-                      onChange={(e) => {
-                        updateState({
-                          reportPrompt: e.target.value,
-                          query: '',
-                        })
-                      }}
-                      placeholder="What would you like to research? (e.g., 'Tesla Q4 2024 financial performance and market impact')"
-                      className='pr-8 text-lg'
-                    />
-                    <Brain className='absolute right-4 top-3 h-5 w-5 text-gray-400' />
+              </div>
+            </div>
+            {state.status.agentStep !== 'idle' && (
+              <div className='mb-4 p-4 bg-blue-50 rounded-lg'>
+                <div className='flex items-center gap-3 mb-3'>
+                  <Loader2 className='h-5 w-5 text-blue-600 animate-spin' />
+                  <h3 className='font-semibold text-blue-800'>
+                    Agent Progress
+                  </h3>
+                </div>
+
+                <div className='space-y-2'>
+                  <div className='flex items-center gap-2 text-sm'>
+                    <span className='font-medium'>Current Step:</span>
+                    <span className='capitalize'>{state.status.agentStep}</span>
                   </div>
-                  <div className='flex flex-col sm:flex-row lg:flex-nowrap gap-2 sm:items-center'>
-                    <div className='w-full sm:w-[200px]'>
-                      <Select
-                        value={state.selectedModel}
-                        onValueChange={(value) =>
-                          updateState({ selectedModel: value })
-                        }
-                        disabled={platformModels.length === 0}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              platformModels.length === 0
-                                ? 'No models available'
-                                : 'Select model'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {platformModels.map((model) => (
-                            <SelectItem
-                              key={model.value}
-                              value={model.value}
-                              disabled={model.disabled}
-                              className={
-                                model.disabled
-                                  ? 'text-gray-400 cursor-not-allowed'
-                                  : ''
-                              }
-                            >
-                              {model.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      type='submit'
-                      disabled={state.status.agentStep !== 'idle'}
-                      className='w-full sm:w-auto lg:w-[200px] bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap'
-                    >
-                      {state.status.agentStep !== 'idle' ? (
-                        <span className='flex items-center gap-2'>
-                          <Loader2 className='h-4 w-4 animate-spin' />
-                          {
-                            {
-                              processing: 'Planning Research...',
-                              searching: 'Searching Web...',
-                              analyzing: 'Analyzing Results...',
-                              generating: 'Writing Report...',
-                            }[state.status.agentStep]
-                          }
-                        </span>
-                      ) : (
-                        'Start Deep Research'
-                      )}
-                    </Button>
-                  </div>
+
+                  {state.status.agentInsights.length > 0 && (
+                    <Collapsible>
+                      <CollapsibleTrigger className='text-sm text-blue-600 hover:underline flex items-center gap-1'>
+                        Show Research Details{' '}
+                        <ChevronDown className='h-4 w-4' />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className='mt-2 space-y-2 text-sm text-gray-600'>
+                        {state.status.agentInsights.map((insight, idx) => (
+                          <div key={idx} className='flex gap-2'>
+                            <span className='text-gray-400'>•</span>
+                            {insight}
+                          </div>
+                        ))}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
                 </div>
               </div>
             )}
-          </form>
-        </div>
+            <form
+              ref={formRef}
+              onSubmit={state.isAgentMode ? handleAgentSearch : handleSearch}
+              className='space-y-4'
+            >
+              {!state.isAgentMode ? (
+                <>
+                  <div className='flex flex-col sm:flex-row gap-2'>
+                    <div className='relative flex-1'>
+                      <Input
+                        type='text'
+                        value={state.query}
+                        onChange={(e) => updateState({ query: e.target.value })}
+                        placeholder='Enter your search query...'
+                        className='pr-8'
+                      />
+                      <Search className='absolute right-2 top-2 h-5 w-5 text-gray-400' />
+                    </div>
 
-        <Separator className='my-8' />
+                    <div className='flex flex-col sm:flex-row gap-2 sm:items-center'>
+                      <div className='flex gap-2 w-full sm:w-auto'>
+                        <Select
+                          value={state.timeFilter}
+                          onValueChange={(value) =>
+                            updateState({ timeFilter: value })
+                          }
+                        >
+                          <SelectTrigger className='flex-1 sm:flex-initial sm:w-[140px]'>
+                            <SelectValue placeholder='Select time range' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeFilters.map((filter) => (
+                              <SelectItem
+                                key={filter.value}
+                                value={filter.value}
+                              >
+                                {filter.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-        {state.error && (
-          <div className='p-4 mb-4 bg-red-50 border border-red-200 rounded-lg'>
-            <div className='flex items-center gap-2 text-red-700'>
-              <div>
-                <h3 className='font-semibold'>Error</h3>
-                <p className='text-sm'>{state.error}</p>
-              </div>
-            </div>
-          </div>
-        )}
+                        <Select
+                          value={state.selectedModel}
+                          onValueChange={(value) =>
+                            updateState({ selectedModel: value })
+                          }
+                          disabled={platformModels.length === 0}
+                        >
+                          <SelectTrigger className='flex-1 sm:flex-initial sm:w-[200px]'>
+                            <SelectValue
+                              placeholder={
+                                platformModels.length === 0
+                                  ? 'No models available'
+                                  : 'Select model'
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {platformModels.map((model) => (
+                              <SelectItem
+                                key={model.value}
+                                value={model.value}
+                                disabled={model.disabled}
+                                className={
+                                  model.disabled
+                                    ? 'text-gray-400 cursor-not-allowed'
+                                    : ''
+                                }
+                              >
+                                {model.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-        {state.results.length > 0 && (
-          <Tabs
-            value={state.activeTab}
-            onValueChange={(value) => updateState({ activeTab: value })}
-            className='w-full'
-          >
-            <div className='mb-6 space-y-4'>
-              {state.selectedResults.length > 0 && !state.isAgentMode && (
-                <div className='flex flex-col sm:flex-row gap-2'>
-                  <div className='relative flex-1'>
-                    <Input
-                      value={state.reportPrompt}
-                      onChange={(e) =>
-                        updateState({ reportPrompt: e.target.value })
-                      }
-                      placeholder="What would you like to know about these sources? (e.g., 'Compare and analyze the key points')"
-                      className='pr-8'
-                    />
-                    <FileText className='absolute right-2 top-2.5 h-5 w-5 text-gray-400' />
+                      <Button
+                        type='submit'
+                        disabled={state.status.loading}
+                        className='w-full sm:w-auto'
+                      >
+                        {state.status.loading ? 'Searching...' : 'Search'}
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    onClick={generateReport}
-                    disabled={
-                      !state.reportPrompt.trim() ||
-                      state.status.generatingReport ||
-                      !state.selectedModel
-                    }
-                    type='button'
-                    className='w-full sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white'
-                  >
-                    {state.status.generatingReport ? (
-                      <span className='flex items-center gap-2'>
-                        <Loader2 className='h-4 w-4 animate-spin' />
-                        Generating...
-                      </span>
-                    ) : (
-                      'Generate Report'
-                    )}
-                  </Button>
+                  <div className='flex gap-2'>
+                    <Input
+                      type='url'
+                      value={state.newUrl}
+                      onChange={(e) => updateState({ newUrl: e.target.value })}
+                      placeholder='Add custom URL...'
+                      className='flex-1'
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddCustomUrl(e)
+                        }
+                      }}
+                    />
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon'
+                      onClick={handleAddCustomUrl}
+                    >
+                      <Plus className='h-4 w-4' />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className='space-y-4 sm:space-y-6 lg:space-y-0'>
+                  <div className='flex flex-col sm:flex-row lg:items-center gap-2'>
+                    <div className='relative flex-1'>
+                      <Input
+                        value={state.query || state.reportPrompt}
+                        onChange={(e) => {
+                          updateState({
+                            reportPrompt: e.target.value,
+                            query: '',
+                          })
+                        }}
+                        placeholder="What would you like to research? (e.g., 'Tesla Q4 2024 financial performance and market impact')"
+                        className='pr-8 text-lg'
+                      />
+                      <Brain className='absolute right-4 top-3 h-5 w-5 text-gray-400' />
+                    </div>
+                    <div className='flex flex-col sm:flex-row lg:flex-nowrap gap-2 sm:items-center'>
+                      <div className='w-full sm:w-[200px]'>
+                        <Select
+                          value={state.selectedModel}
+                          onValueChange={(value) =>
+                            updateState({ selectedModel: value })
+                          }
+                          disabled={platformModels.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                platformModels.length === 0
+                                  ? 'No models available'
+                                  : 'Select model'
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {platformModels.map((model) => (
+                              <SelectItem
+                                key={model.value}
+                                value={model.value}
+                                disabled={model.disabled}
+                                className={
+                                  model.disabled
+                                    ? 'text-gray-400 cursor-not-allowed'
+                                    : ''
+                                }
+                              >
+                                {model.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type='submit'
+                        disabled={state.status.agentStep !== 'idle'}
+                        className='w-full sm:w-auto lg:w-[200px] bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap'
+                      >
+                        {state.status.agentStep !== 'idle' ? (
+                          <span className='flex items-center gap-2'>
+                            <Loader2 className='h-4 w-4 animate-spin' />
+                            {
+                              {
+                                processing: 'Planning Research...',
+                                searching: 'Searching Web...',
+                                analyzing: 'Analyzing Results...',
+                                generating: 'Writing Report...',
+                              }[state.status.agentStep]
+                            }
+                          </span>
+                        ) : (
+                          'Start Deep Research'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
-              <div className='text-sm text-gray-600 text-center sm:text-left space-y-1'>
-                <p>
-                  {state.selectedResults.length === 0
-                    ? 'Select up to 3 results to generate a report'
-                    : state.selectedModel
-                    ? `${state.selectedResults.length} of ${MAX_SELECTIONS} results selected`
-                    : 'Please select a model above to generate a report'}
-                </p>
-                {state.status.generatingReport && (
-                  <p>
-                    {state.status.fetchStatus.successful} fetched,{' '}
-                    {state.status.fetchStatus.fallback} failed (of{' '}
-                    {state.status.fetchStatus.total})
-                  </p>
-                )}
-              </div>
-              <TabsList className='grid w-full grid-cols-2 mb-4'>
-                <TabsTrigger value='search'>Search Results</TabsTrigger>
-                <TabsTrigger value='report' disabled={!state.report}>
-                  Report
-                </TabsTrigger>
-              </TabsList>
+            </form>
+          </div>
 
-              <TabsContent value='search' className='space-y-4'>
-                {!state.isAgentMode &&
-                  state.results
-                    .filter((r) => r.isCustomUrl)
+          <Separator className='my-8' />
+
+          {state.error && (
+            <div className='p-4 mb-4 bg-red-50 border border-red-200 rounded-lg'>
+              <div className='flex items-center gap-2 text-red-700'>
+                <div>
+                  <h3 className='font-semibold'>Error</h3>
+                  <p className='text-sm'>{state.error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {state.results.length > 0 && (
+            <Tabs
+              value={state.activeTab}
+              onValueChange={(value) => updateState({ activeTab: value })}
+              className='w-full'
+            >
+              <div className='mb-6 space-y-4'>
+                {state.selectedResults.length > 0 && !state.isAgentMode && (
+                  <div className='flex flex-col sm:flex-row gap-2'>
+                    <div className='relative flex-1'>
+                      <Input
+                        value={state.reportPrompt}
+                        onChange={(e) =>
+                          updateState({ reportPrompt: e.target.value })
+                        }
+                        placeholder="What would you like to know about these sources? (e.g., 'Compare and analyze the key points')"
+                        className='pr-8'
+                      />
+                      <FileText className='absolute right-2 top-2.5 h-5 w-5 text-gray-400' />
+                    </div>
+                    <Button
+                      onClick={generateReport}
+                      disabled={
+                        !state.reportPrompt.trim() ||
+                        state.status.generatingReport ||
+                        !state.selectedModel
+                      }
+                      type='button'
+                      className='w-full sm:w-auto whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white'
+                    >
+                      {state.status.generatingReport ? (
+                        <span className='flex items-center gap-2'>
+                          <Loader2 className='h-4 w-4 animate-spin' />
+                          Generating...
+                        </span>
+                      ) : (
+                        'Generate Report'
+                      )}
+                    </Button>
+                  </div>
+                )}
+                <div className='text-sm text-gray-600 text-center sm:text-left space-y-1'>
+                  <p>
+                    {state.selectedResults.length === 0
+                      ? 'Select up to 3 results to generate a report'
+                      : state.selectedModel
+                      ? `${state.selectedResults.length} of ${MAX_SELECTIONS} results selected`
+                      : 'Please select a model above to generate a report'}
+                  </p>
+                  {state.status.generatingReport && (
+                    <p>
+                      {state.status.fetchStatus.successful} fetched,{' '}
+                      {state.status.fetchStatus.fallback} failed (of{' '}
+                      {state.status.fetchStatus.total})
+                    </p>
+                  )}
+                </div>
+                <TabsList className='grid w-full grid-cols-2 mb-4'>
+                  <TabsTrigger value='search'>Search Results</TabsTrigger>
+                  <TabsTrigger value='report' disabled={!state.report}>
+                    Report
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value='search' className='space-y-4'>
+                  {!state.isAgentMode &&
+                    state.results
+                      .filter((r) => r.isCustomUrl)
+                      .map((result) => (
+                        <Card
+                          key={result.id}
+                          className='overflow-hidden border-2 border-blue-100'
+                        >
+                          <CardContent className='p-4 flex gap-4'>
+                            <div className='pt-1'>
+                              <Checkbox
+                                checked={state.selectedResults.includes(
+                                  result.id
+                                )}
+                                onCheckedChange={() =>
+                                  handleResultSelect(result.id)
+                                }
+                                disabled={
+                                  !state.selectedResults.includes(result.id) &&
+                                  state.selectedResults.length >= MAX_SELECTIONS
+                                }
+                              />
+                            </div>
+                            <div className='flex-1 min-w-0'>
+                              <div className='flex justify-between items-start'>
+                                <a
+                                  href={result.url}
+                                  target='_blank'
+                                  rel='noopener noreferrer'
+                                  className='text-blue-600 hover:underline'
+                                >
+                                  <h2 className='text-xl font-semibold truncate'>
+                                    {result.name}
+                                  </h2>
+                                </a>
+                                <Button
+                                  variant='ghost'
+                                  size='sm'
+                                  onClick={() => handleRemoveResult(result.id)}
+                                  className='ml-2'
+                                >
+                                  <X className='h-4 w-4' />
+                                </Button>
+                              </div>
+                              <p className='text-green-700 text-sm truncate'>
+                                {result.url}
+                              </p>
+                              <p className='mt-1 text-gray-600 line-clamp-2'>
+                                {result.snippet}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                  {state.results
+                    .filter((r) => !r.isCustomUrl)
                     .map((result) => (
-                      <Card
-                        key={result.id}
-                        className='overflow-hidden border-2 border-blue-100'
-                      >
+                      <Card key={result.id} className='overflow-hidden'>
                         <CardContent className='p-4 flex gap-4'>
                           <div className='pt-1'>
                             <Checkbox
@@ -1195,207 +1232,131 @@ export default function Home() {
                             />
                           </div>
                           <div className='flex-1 min-w-0'>
-                            <div className='flex justify-between items-start'>
+                            <h2 className='text-xl font-semibold truncate text-blue-600 hover:underline'>
                               <a
                                 href={result.url}
                                 target='_blank'
                                 rel='noopener noreferrer'
-                                className='text-blue-600 hover:underline'
-                              >
-                                <h2 className='text-xl font-semibold truncate'>
-                                  {result.name}
-                                </h2>
-                              </a>
-                              <Button
-                                variant='ghost'
-                                size='sm'
-                                onClick={() => handleRemoveResult(result.id)}
-                                className='ml-2'
-                              >
-                                <X className='h-4 w-4' />
-                              </Button>
-                            </div>
+                                dangerouslySetInnerHTML={{
+                                  __html: result.name,
+                                }}
+                              />
+                            </h2>
                             <p className='text-green-700 text-sm truncate'>
                               {result.url}
                             </p>
-                            <p className='mt-1 text-gray-600 line-clamp-2'>
-                              {result.snippet}
-                            </p>
+                            <p
+                              className='mt-1 text-gray-600 line-clamp-2'
+                              dangerouslySetInnerHTML={{
+                                __html: result.snippet,
+                              }}
+                            />
                           </div>
                         </CardContent>
                       </Card>
                     ))}
+                </TabsContent>
 
-                {state.results
-                  .filter((r) => !r.isCustomUrl)
-                  .map((result) => (
-                    <Card key={result.id} className='overflow-hidden'>
-                      <CardContent className='p-4 flex gap-4'>
-                        <div className='pt-1'>
-                          <Checkbox
-                            checked={state.selectedResults.includes(result.id)}
-                            onCheckedChange={() =>
-                              handleResultSelect(result.id)
-                            }
-                            disabled={
-                              !state.selectedResults.includes(result.id) &&
-                              state.selectedResults.length >= MAX_SELECTIONS
-                            }
-                          />
-                        </div>
-                        <div className='flex-1 min-w-0'>
-                          <h2 className='text-xl font-semibold truncate text-blue-600 hover:underline'>
-                            <a
-                              href={result.url}
-                              target='_blank'
-                              rel='noopener noreferrer'
-                              dangerouslySetInnerHTML={{ __html: result.name }}
+                <TabsContent value='report'>
+                  {state.report && (
+                    <Card>
+                      <CardContent className='p-6 space-y-6'>
+                        <Collapsible
+                          open={state.isSourcesOpen}
+                          onOpenChange={(open) =>
+                            updateState({ isSourcesOpen: open })
+                          }
+                          className='w-full border rounded-lg p-2'
+                        >
+                          <CollapsibleTrigger className='flex items-center justify-between w-full'>
+                            <span className='text-sm font-medium'>
+                              Overview
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform ${
+                                state.isSourcesOpen
+                                  ? 'transform rotate-180'
+                                  : ''
+                              }`}
                             />
-                          </h2>
-                          <p className='text-green-700 text-sm truncate'>
-                            {result.url}
-                          </p>
-                          <p
-                            className='mt-1 text-gray-600 line-clamp-2'
-                            dangerouslySetInnerHTML={{ __html: result.snippet }}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </TabsContent>
-
-              <TabsContent value='report'>
-                {state.report && (
-                  <Card>
-                    <CardContent className='p-6 space-y-6'>
-                      <Collapsible
-                        open={state.isSourcesOpen}
-                        onOpenChange={(open) =>
-                          updateState({ isSourcesOpen: open })
-                        }
-                        className='w-full border rounded-lg p-2'
-                      >
-                        <CollapsibleTrigger className='flex items-center justify-between w-full'>
-                          <span className='text-sm font-medium'>Overview</span>
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${
-                              state.isSourcesOpen ? 'transform rotate-180' : ''
-                            }`}
-                          />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className='space-y-4 mt-2'>
-                          <div className='text-sm text-gray-600 bg-gray-50 p-3 rounded'>
-                            <p className='font-medium text-gray-700'>
-                              {state.status.fetchStatus.successful} of{' '}
-                              {state.report?.sources?.length || 0} sources
-                              fetched successfully
-                            </p>
-                          </div>
-                          <div className='space-y-2'>
-                            {state.report?.sources?.map((source) => (
-                              <div key={source.id} className='text-gray-600'>
-                                <div className='flex items-center gap-2'>
-                                  <a
-                                    href={source.url}
-                                    target='_blank'
-                                    rel='noopener noreferrer'
-                                    className='text-blue-600 hover:underline'
-                                  >
-                                    {source.name}
-                                  </a>
-                                  <span
-                                    className={`text-xs px-1.5 py-0.5 rounded ${
-                                      state.status.fetchStatus.sourceStatuses[
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className='space-y-4 mt-2'>
+                            <div className='text-sm text-gray-600 bg-gray-50 p-3 rounded'>
+                              <p className='font-medium text-gray-700'>
+                                {state.status.fetchStatus.successful} of{' '}
+                                {state.report?.sources?.length || 0} sources
+                                fetched successfully
+                              </p>
+                            </div>
+                            <div className='space-y-2'>
+                              {state.report?.sources?.map((source) => (
+                                <div key={source.id} className='text-gray-600'>
+                                  <div className='flex items-center gap-2'>
+                                    <a
+                                      href={source.url}
+                                      target='_blank'
+                                      rel='noopener noreferrer'
+                                      className='text-blue-600 hover:underline'
+                                    >
+                                      {source.name}
+                                    </a>
+                                    <span
+                                      className={`text-xs px-1.5 py-0.5 rounded ${
+                                        state.status.fetchStatus.sourceStatuses[
+                                          source.url
+                                        ] === 'fetched'
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-yellow-50 text-yellow-600'
+                                      }`}
+                                    >
+                                      {state.status.fetchStatus.sourceStatuses[
                                         source.url
                                       ] === 'fetched'
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-yellow-50 text-yellow-600'
-                                    }`}
-                                  >
-                                    {state.status.fetchStatus.sourceStatuses[
-                                      source.url
-                                    ] === 'fetched'
-                                      ? 'fetched'
-                                      : 'preview'}
-                                  </span>
+                                        ? 'fetched'
+                                        : 'preview'}
+                                    </span>
+                                  </div>
+                                  <p className='text-sm text-gray-500'>
+                                    {source.url}
+                                  </p>
                                 </div>
-                                <p className='text-sm text-gray-500'>
-                                  {source.url}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                      <div className='flex flex-col-reverse sm:flex-row sm:justify-between sm:items-start gap-4'>
-                        <h2 className='text-2xl font-bold text-gray-800 text-center sm:text-left'>
-                          {state.report?.title}
-                        </h2>
-                        <div className='flex w-full sm:w-auto gap-2'>
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            className='gap-2'
-                            onClick={handleSaveToKnowledgeBase}
-                          >
-                            <Brain className='h-4 w-4' />
-                            Save to Knowledge Base
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant='outline'
-                                size='sm'
-                                className='gap-2'
-                              >
-                                <Download className='h-4 w-4' />
-                                Download
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align='end'>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload('pdf')}
-                              >
-                                Download as PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload('docx')}
-                              >
-                                Download as Word
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload('txt')}
-                              >
-                                Download as Text
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                        <div className='flex flex-col-reverse sm:flex-row sm:justify-between sm:items-start gap-4'>
+                          <h2 className='text-2xl font-bold text-gray-800 text-center sm:text-left'>
+                            {state.report?.title}
+                          </h2>
+                          <ReportActions
+                            report={state.report}
+                            prompt={state.reportPrompt}
+                          />
                         </div>
-                      </div>
-                      <p className='text-lg text-gray-700'>
-                        {state.report?.summary}
-                      </p>
-                      {state.report?.sections?.map((section, index) => (
-                        <div key={index} className='space-y-2 border-t pt-4'>
-                          <h3 className='text-xl font-semibold text-gray-700'>
-                            {section.title}
-                          </h3>
-                          <div className='prose max-w-none text-gray-600'>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {section.content}
-                            </ReactMarkdown>
+                        <p className='text-lg text-gray-700'>
+                          {state.report?.summary}
+                        </p>
+                        {state.report?.sections?.map((section, index) => (
+                          <div key={index} className='space-y-2 border-t pt-4'>
+                            <h3 className='text-xl font-semibold text-gray-700'>
+                              {section.title}
+                            </h3>
+                            <div className='prose max-w-none text-gray-600'>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {section.content}
+                              </ReactMarkdown>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-            </div>
-          </Tabs>
-        )}
-      </main>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+              </div>
+            </Tabs>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
