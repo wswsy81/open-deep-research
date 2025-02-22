@@ -13,7 +13,7 @@ import type { Report } from '@/types'
 interface ReportActionsProps {
   report: Report
   prompt?: string
-  size?: 'sm'
+  size?: 'default' | 'sm'
   variant?: 'default' | 'outline'
   className?: string
 }

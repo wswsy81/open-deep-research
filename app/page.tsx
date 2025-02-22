@@ -25,12 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import type {
   SearchResult,
   RankingResult,
@@ -490,7 +484,7 @@ export default function Home() {
           agentInsights: [
             ...prev.agentInsights,
             `Research strategy: ${explanation}`,
-            ...(Array.isArray(suggestedStructure) 
+            ...(Array.isArray(suggestedStructure)
               ? [`Suggested structure: ${suggestedStructure.join(' → ')}`]
               : []),
           ],
@@ -1294,8 +1288,8 @@ export default function Home() {
                         <h2 className='text-2xl font-bold text-gray-800 text-center sm:text-left'>
                           {state.report?.title}
                         </h2>
-                        <ReportActions 
-                          report={state.report} 
+                        <ReportActions
+                          report={state.report}
                           prompt={state.reportPrompt}
                         />
                       </div>

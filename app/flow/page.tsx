@@ -17,6 +17,7 @@ import {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  MiniMap
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
@@ -446,18 +447,6 @@ export default function FlowPage() {
     }
   }
 
-  const getReportChain = (reportId: string): Report[] => {
-    const chain: Report[] = []
-    let currentNode = nodes.find((n) => n.id === reportId)
-
-    while (currentNode?.data.report) {
-      chain.push(currentNode.data.report)
-      currentNode = nodes.find((n) => n.id === currentNode?.data.parentId)
-    }
-
-    return chain.reverse()
-  }
-
   const handleReportSelect = (reportId: string) => {
     setSelectedReports((prev) => {
       const newSelected = prev.includes(reportId)
@@ -622,6 +611,7 @@ export default function FlowPage() {
           maxZoom={1.5}
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         >
+          <MiniMap nodeStrokeWidth={3} />
           <Background />
           <Controls />
         </ReactFlow>
