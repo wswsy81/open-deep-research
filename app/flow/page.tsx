@@ -559,7 +559,18 @@ export default function FlowPage() {
         groupNode.id
       )
 
-      setNodes((nds) => [...nds, groupNode, consolidatedNode])
+      setNodes((nds) => {
+        const updatedNodes = nds.map((node) => {
+          if (selectedReports.includes(node.id)) {
+            return {
+              ...node,
+              data: { ...node.data, isSelected: false },
+            }
+          }
+          return node
+        })
+        return [...updatedNodes, groupNode, consolidatedNode]
+      })
 
       setEdges((eds) => [
         ...eds,
