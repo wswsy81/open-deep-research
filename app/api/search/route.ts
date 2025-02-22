@@ -4,6 +4,7 @@ import { CONFIG } from '@/lib/config'
 
 const BING_ENDPOINT = 'https://api.bing.microsoft.com/v7.0/search'
 const GOOGLE_ENDPOINT = 'https://customsearch.googleapis.com/customsearch/v1'
+const EXA_ENDPOINT = 'https://api.exa.ai/search'
 
 type TimeFilter = '24h' | 'week' | 'month' | 'year' | 'all'
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       query,
       timeFilter = 'all',
       provider = CONFIG.search.provider,
-      isTestQuery = false
+      isTestQuery = false,
     } = body
 
     if (!query) {
@@ -65,22 +66,25 @@ export async function POST(request: Request) {
               id: 'test-1',
               url: 'https://example.com/test-1',
               name: 'Test Result 1',
-              snippet: 'This is a test search result for testing purposes. It contains some sample text about research and analysis.',
+              snippet:
+                'This is a test search result for testing purposes. It contains some sample text about research and analysis.',
             },
             {
               id: 'test-2',
               url: 'https://example.com/test-2',
               name: 'Test Result 2',
-              snippet: 'Another test result with different content. This one discusses methodology and data collection.',
+              snippet:
+                'Another test result with different content. This one discusses methodology and data collection.',
             },
             {
               id: 'test-3',
               url: 'https://example.com/test-3',
               name: 'Test Result 3',
-              snippet: 'A third test result focusing on academic research and scientific papers.',
-            }
-          ]
-        }
+              snippet:
+                'A third test result focusing on academic research and scientific papers.',
+            },
+          ],
+        },
       })
     }
 
@@ -98,7 +102,83 @@ export async function POST(request: Request) {
       }
     }
 
-    if (provider === 'google') {
+    if (provider === 'exa') {
+      const exaApiKey = process.env.EXA_API_KEY
+      if (!exaApiKey) {
+        return NextResponse.json(
+          {
+            error:
+              'Exa search API is not properly configured. Please check your environment variables.',
+          },
+          { status: 500 }
+        )
+      }
+
+      try {
+        const exaResponse = await fetch(EXA_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${exaApiKey}`,
+          },
+          body: JSON.stringify({
+            query,
+            type: 'auto',
+            numResults: CONFIG.search.resultsPerPage,
+            contents: {
+              text: {
+                maxCharacters: 500,
+              },
+            },
+          }),
+        })
+
+        if (!exaResponse.ok) {
+          if (exaResponse.status === 429) {
+            return NextResponse.json(
+              {
+                error: 'Rate limit exceeded. Please try again later.',
+              },
+              { status: 429 }
+            )
+          }
+          throw new Error(`Exa API error: ${exaResponse.status}`)
+        }
+
+        const response = await exaResponse.json()
+
+        if (!response?.results) {
+          throw new Error('Unexpected Exa API response format')
+        }
+
+        // Transform Exa results to match our format
+        const transformedResults = {
+          webPages: {
+            value: response.results.map((item: any) => ({
+              id: item.id || item.url,
+              url: item.url,
+              name: item.title || 'Untitled',
+              snippet: item.text || '',
+              publishedDate: item.publishedDate || undefined,
+              author: item.author || undefined,
+              image: item.image || undefined,
+              favicon: item.favicon || undefined,
+              score: item.score || undefined,
+            })),
+          },
+        }
+
+        return NextResponse.json(transformedResults)
+      } catch (error: any) {
+        console.error('Exa search error:', error)
+        return NextResponse.json(
+          {
+            error: 'Failed to fetch search results from Exa.',
+          },
+          { status: 500 }
+        )
+      }
+    } else if (provider === 'google') {
       // Ensure required Google API variables are available.
       const googleApiKey = process.env.GOOGLE_SEARCH_API_KEY
       const googleCx = process.env.GOOGLE_SEARCH_CX
