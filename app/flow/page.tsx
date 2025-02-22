@@ -677,6 +677,16 @@ export default function FlowPage() {
         </div>
       </div>
       <div className='flex-1 w-full'>
+        {nodes.some((node) => node.data.error) && (
+          <div className='p-4 mb-4 bg-red-50 border-l-4 border-red-500'>
+            <div className='max-w-4xl mx-auto flex items-center gap-2 text-red-700'>
+              <p className='text-sm'>
+                {nodes.find((node) => node.data.error)?.data.error ||
+                  'An error occurred during the operation. Please try again.'}
+              </p>
+            </div>
+          </div>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
