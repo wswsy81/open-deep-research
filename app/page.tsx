@@ -40,7 +40,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
-import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
 import { useToast } from '@/hooks/use-toast'
 import { KnowledgeBaseSidebar } from '@/components/knowledge-base-sidebar'
 import { ReportActions } from '@/components/report-actions'

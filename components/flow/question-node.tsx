@@ -1,5 +1,4 @@
 import { memo } from 'react'
-import type { Node } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

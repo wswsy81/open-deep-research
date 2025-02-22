@@ -28,10 +28,6 @@ Open Deep Research combines powerful tools to streamline research and report cre
 - ⚡ Rate limiting for stability
 - 📱 Responsive design
 
-## Demo
-
-Try it out at: [Open Deep Research](https://opendeepresearch.vercel.app/)
-
 ### Knowledge Base
 
 The Knowledge Base feature allows you to:
@@ -447,6 +443,10 @@ You'll need two components to use Google Custom Search:
 - [jsPDF](https://github.com/parallax/jsPDF) & [docx](https://github.com/dolanmiu/docx) - Document generation
 
 The app will use the configured provider (default: Google) for all searches. You can switch providers by updating the `provider` value in the config file.
+
+## Demo
+
+Try it out at: [Open Deep Research](https://opendeepresearch.vercel.app/)
 
 ## Contributing
 
