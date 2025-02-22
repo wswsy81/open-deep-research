@@ -233,7 +233,12 @@ export default function FlowPage() {
         }),
       })
 
-      if (!response.ok) throw new Error('Search failed')
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Search failed' }))
+        throw new Error(errorData.error || `Search failed: ${response.status}`)
+      }
       const data = await response.json()
       console.log('Search response:', data)
 
@@ -405,7 +410,13 @@ export default function FlowPage() {
       })
 
       if (!reportResponse.ok) {
-        throw new Error('Failed to generate report')
+        const errorData = await reportResponse
+          .json()
+          .catch(() => ({ error: 'Failed to generate report' }))
+        throw new Error(
+          errorData.error ||
+            `Failed to generate report: ${reportResponse.status}`
+        )
       }
 
       const report = await reportResponse.json()
@@ -420,7 +431,13 @@ export default function FlowPage() {
       })
 
       if (!searchTermsResponse.ok) {
-        throw new Error('Failed to generate search terms')
+        const errorData = await searchTermsResponse
+          .json()
+          .catch(() => ({ error: 'Failed to generate search terms' }))
+        throw new Error(
+          errorData.error ||
+            `Failed to generate search terms: ${searchTermsResponse.status}`
+        )
       }
 
       const { searchTerms } = await searchTermsResponse.json()
