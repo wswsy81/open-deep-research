@@ -3,6 +3,8 @@
 <div align="center">
   <img src="demo.gif" alt="Open Deep Research Demo" width="800"/>
   <p><em>Note: Demo is sped up for brevity</em></p>
+  
+  <p><a href="https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f">🎥 Watch the full demo video on Loom</a></p>
 </div>
 
 A powerful open-source research assistant that generates comprehensive AI-powered reports from web search results. Unlike other Deep Research solutions, it provides seamless integration with multiple AI platforms including Google, OpenAI, Anthropic, DeepSeek, and even local models - giving you the freedom to choose the perfect AI model for your specific research requirements.
@@ -60,6 +62,7 @@ Key capabilities:
 - 📊 **Interactive Interface**: Drag, arrange, and organize your research flows visually
 
 The Flow interface makes it easy to:
+
 1. Start with an initial research query
 2. Review and select relevant search results
 3. Generate detailed reports from selected sources
@@ -68,6 +71,7 @@ The Flow interface makes it easy to:
 6. Finally, consolidate related reports into comprehensive summaries
 
 This feature is perfect for:
+
 - Academic research requiring deep exploration of interconnected topics
 - Market research needing multiple angles of investigation
 - Complex topic analysis requiring recursive deep dives
@@ -340,6 +344,7 @@ You can run the application either directly on your machine or using Docker.
 #### Option 1: Traditional Setup
 
 1. Start the development server:
+
 ```bash
 npm run dev
 # or
@@ -357,11 +362,13 @@ bun dev
 If you prefer using Docker, you can build and run the application in a container after setting up your environment variables:
 
 1. Build the Docker image:
+
 ```bash
 docker build -t open-deep-research:v1 .
 ```
 
 2. Run the container:
+
 ```bash
 docker run -p 3000:3000 open-deep-research
 ```
