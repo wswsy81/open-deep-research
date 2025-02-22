@@ -17,17 +17,25 @@ import {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
-  MiniMap
+  MiniMap,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Brain, Search, FileText, Loader2 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { SearchNode } from '@/components/flow/search-node'
 import { ReportNode } from '@/components/flow/report-node'
 import { SelectionNode } from '@/components/flow/selection-node'
 import { QuestionNode } from '@/components/flow/question-node'
-import type { SearchResult, Report } from '@/types'
+import type { SearchResult, Report, PlatformModel } from '@/types'
+import { CONFIG } from '@/lib/config'
 
 const nodeTypes: NodeTypes = {
   searchNode: SearchNode,
@@ -37,6 +45,23 @@ const nodeTypes: NodeTypes = {
 }
 
 const DEFAULT_MODEL = 'google__gemini-flash'
+
+const platformModels = Object.entries(CONFIG.platforms)
+  .flatMap(([platform, config]) => {
+    if (!config.enabled) return []
+
+    return Object.entries(config.models).map(([modelId, modelConfig]) => {
+      return {
+        value: `${platform}__${modelId}`,
+        label: `${platform.charAt(0).toUpperCase() + platform.slice(1)} - ${
+          modelConfig.label
+        }`,
+        platform,
+        disabled: !modelConfig.enabled,
+      }
+    })
+  })
+  .filter(Boolean) as (PlatformModel & { disabled: boolean })[]
 
 interface ResearchNode extends Node {
   data: {
@@ -67,6 +92,7 @@ export default function FlowPage() {
   const [loading, setLoading] = useState(false)
   const [selectedReports, setSelectedReports] = useState<string[]>([])
   const [isConsolidating, setIsConsolidating] = useState(false)
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) =>
@@ -203,7 +229,7 @@ export default function FlowPage() {
         body: JSON.stringify({
           query,
           timeFilter: 'all',
-          platformModel: DEFAULT_MODEL,
+          platformModel: selectedModel,
         }),
       })
 
@@ -371,7 +397,7 @@ export default function FlowPage() {
           selectedResults: validResults,
           sources: selectedResults,
           prompt: 'Provide comprehensive analysis of the selected sources.',
-          platformModel: DEFAULT_MODEL,
+          platformModel: selectedModel,
         }),
       })
 
@@ -386,7 +412,7 @@ export default function FlowPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           report,
-          platformModel: DEFAULT_MODEL,
+          platformModel: selectedModel,
         }),
       })
 
@@ -490,7 +516,7 @@ export default function FlowPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reports: reportsToConsolidate,
-          platformModel: DEFAULT_MODEL,
+          platformModel: selectedModel,
         }),
       })
 
@@ -554,51 +580,89 @@ export default function FlowPage() {
   return (
     <div className='h-screen flex flex-col'>
       <div className='p-4 border-b'>
-        <div className='max-w-4xl mx-auto flex gap-4'>
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder='Enter research topic'
-            className='flex-1'
-          />
-          <Button
-            onClick={() => handleStartResearch()}
-            disabled={loading}
-            className='gap-2'
-          >
-            {loading ? (
-              <>
-                <Brain className='h-4 w-4 animate-spin' />
-                Researching...
-              </>
-            ) : (
-              <>
-                <Search className='h-4 w-4' />
-                Start Research
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={handleConsolidateSelected}
-            disabled={selectedReports.length < 2 || isConsolidating}
-            variant='outline'
-            className='gap-2'
-          >
-            {isConsolidating ? (
-              <>
-                <Loader2 className='h-4 w-4 animate-spin' />
-                Consolidating...
-              </>
-            ) : (
-              <>
-                <FileText className='h-4 w-4' />
-                Consolidate Selected ({selectedReports.length})
-              </>
-            )}
-          </Button>
+        <div className='max-w-4xl mx-auto flex flex-col gap-4'>
+          <div className='flex flex-col sm:flex-row gap-4'>
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder='Enter research topic'
+              className='flex-1 min-w-0'
+            />
+            <Button
+              onClick={() => handleStartResearch()}
+              disabled={loading}
+              className='gap-2 whitespace-nowrap'
+            >
+              {loading ? (
+                <>
+                  <Brain className='h-4 w-4 animate-spin' />
+                  Researching...
+                </>
+              ) : (
+                <>
+                  <Search className='h-4 w-4' />
+                  Start Research
+                </>
+              )}
+            </Button>
+          </div>
+          <div className='flex flex-col sm:flex-row items-start sm:items-center gap-4'>
+            <div className='flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto'>
+              <p className='text-sm text-gray-500 whitespace-nowrap'>
+                Model for report generation:
+              </p>
+              <Select
+                value={selectedModel}
+                onValueChange={setSelectedModel}
+                disabled={platformModels.length === 0}
+              >
+                <SelectTrigger className='w-full sm:w-[200px]'>
+                  <SelectValue
+                    placeholder={
+                      platformModels.length === 0
+                        ? 'No models available'
+                        : 'Select model'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {platformModels.map((model) => (
+                    <SelectItem
+                      key={model.value}
+                      value={model.value}
+                      disabled={model.disabled}
+                      className={
+                        model.disabled ? 'text-gray-400 cursor-not-allowed' : ''
+                      }
+                    >
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleConsolidateSelected}
+              disabled={selectedReports.length < 2 || isConsolidating}
+              variant='outline'
+              className='gap-2 w-full sm:w-auto sm:ml-auto'
+            >
+              {isConsolidating ? (
+                <>
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                  Consolidating...
+                </>
+              ) : (
+                <>
+                  <FileText className='h-4 w-4' />
+                  Consolidate Selected ({selectedReports.length})
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
-      <div className='flex-1'>
+      <div className='flex-1 w-full'>
         <ReactFlow
           nodes={nodes}
           edges={edges}
