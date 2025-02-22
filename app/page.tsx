@@ -49,6 +49,7 @@ import {
 import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
 import { useToast } from '@/hooks/use-toast'
 import { KnowledgeBaseSidebar } from '@/components/knowledge-base-sidebar'
+import { ReportActions } from '@/components/report-actions'
 
 const timeFilters = [
   { value: 'all', label: 'Any time' },
@@ -767,47 +768,6 @@ export default function Home() {
     }))
   }, [])
 
-  const handleDownload = useCallback(
-    async (format: 'pdf' | 'docx' | 'txt') => {
-      if (!state.report) return
-
-      try {
-        const response = await fetch('/api/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            report: state.report,
-            format,
-          }),
-        })
-
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `report.${format}`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      } catch (error) {
-        handleError(error, 'Download failed')
-      }
-    },
-    [state.report, handleError]
-  )
-
-  const handleSaveToKnowledgeBase = useCallback(() => {
-    if (!state.report) return
-    const success = addReport(state.report, state.reportPrompt)
-    if (success) {
-      toast({
-        title: 'Saved to Knowledge Base',
-        description: 'The report has been saved for future reference',
-      })
-    }
-  }, [state.report, state.reportPrompt, addReport, toast])
-
   return (
     <div className='min-h-screen bg-white p-4 sm:p-8'>
       <KnowledgeBaseSidebar
@@ -1334,46 +1294,10 @@ export default function Home() {
                         <h2 className='text-2xl font-bold text-gray-800 text-center sm:text-left'>
                           {state.report?.title}
                         </h2>
-                        <div className='flex w-full sm:w-auto gap-2'>
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            className='gap-2'
-                            onClick={handleSaveToKnowledgeBase}
-                          >
-                            <Brain className='h-4 w-4' />
-                            Save to Knowledge Base
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant='outline'
-                                size='sm'
-                                className='gap-2'
-                              >
-                                <Download className='h-4 w-4' />
-                                Download
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align='end'>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload('pdf')}
-                              >
-                                Download as PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload('docx')}
-                              >
-                                Download as Word
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload('txt')}
-                              >
-                                Download as Text
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                        <ReportActions 
+                          report={state.report} 
+                          prompt={state.reportPrompt}
+                        />
                       </div>
                       <p className='text-lg text-gray-700'>
                         {state.report?.summary}
