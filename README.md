@@ -436,9 +436,9 @@ You'll need two components to use Google Custom Search:
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [shadcn/ui](https://ui.shadcn.com/) - UI components
-- [Google Gemini](https://deepmind.google/technologies/gemini/) - AI model
 - [JinaAI](https://jina.ai/) - Content extraction
 - [Azure Bing Search](https://www.microsoft.com/en-us/bing/apis/bing-web-search-api) - Web search
+- [Google Custom Search](https://developers.google.com/custom-search/v1/overview) - Web search
 - [Upstash Redis](https://upstash.com/) - Rate limiting
 - [jsPDF](https://github.com/parallax/jsPDF) & [docx](https://github.com/dolanmiu/docx) - Document generation
 
