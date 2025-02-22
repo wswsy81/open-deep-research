@@ -41,6 +41,38 @@ The Knowledge Base feature allows you to:
 - Quickly load and review past reports
 - Build a personal research library over time
 
+### Flow: Deep Research & Report Consolidation
+
+The Flow feature enables deep, recursive research by allowing you to:
+
+- Create visual research flows with interconnected reports
+- Generate follow-up queries based on initial research findings
+- Dive deeper into specific topics through recursive exploration
+- Consolidate multiple related reports into comprehensive final reports
+
+Key capabilities:
+
+- 🌳 **Deep Research Trees**: Start with a topic and automatically generate relevant follow-up questions to explore deeper aspects
+- 🔄 **Recursive Exploration**: Follow research paths down various "rabbit holes" by generating new queries from report insights
+- 🔍 **Visual Research Mapping**: See your entire research journey mapped out visually, showing connections between different research paths
+- 🎯 **Smart Query Generation**: AI-powered generation of follow-up research questions based on report content
+- 🔗 **Report Consolidation**: Select multiple related reports and combine them into a single, comprehensive final report
+- 📊 **Interactive Interface**: Drag, arrange, and organize your research flows visually
+
+The Flow interface makes it easy to:
+1. Start with an initial research query
+2. Review and select relevant search results
+3. Generate detailed reports from selected sources
+4. Get AI-suggested follow-up questions for deeper exploration
+5. Create new research branches from those questions
+6. Finally, consolidate related reports into comprehensive summaries
+
+This feature is perfect for:
+- Academic research requiring deep exploration of interconnected topics
+- Market research needing multiple angles of investigation
+- Complex topic analysis requiring recursive deep dives
+- Any research task where you need to "follow the thread" of information
+
 ## Configuration
 
 The app's settings can be customized through the configuration file at `lib/config.ts`. Here are the key parameters you can adjust:
