@@ -206,12 +206,21 @@ platforms: {
     enabled: true,
     models: {
       'chat': {
-        enabled: true,
+        enabled: false,
         label: 'DeepSeek V3',
       },
       'reasoner': {
-        enabled: true,
+        enabled: false,
         label: 'DeepSeek R1',
+      },
+    },
+  },
+  openrouter: {
+    enabled: true,
+    models: {
+      'auto': {
+        enabled: false,
+        label: 'OpenRouter (Auto)',
       },
     },
   },
@@ -228,6 +237,10 @@ For each platform:
 Disabled models will appear grayed out in the UI but remain visible to show all available options. This allows users to see the full range of available models while clearly indicating which ones are currently accessible.
 
 To modify these settings, update the values in `lib/config.ts`. The changes will take effect after restarting the development server.
+
+### OpenRouter Integration
+
+OpenRouter provides access to various AI models through a unified API. By default, it's set to 'auto' mode which automatically selects the most suitable model, but you can configure it to use specific models of your choice by modifying the models section in the configuration.
 
 ### Important Note for Reasoning Models
 
@@ -321,6 +334,9 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 # DeepSeek API key (optional - required only if DeepSeek models are enabled)
 DEEPSEEK_API_KEY=your_deepseek_api_key
 
+# OpenRouter API Key (Optional - if using OpenRouter as AI platform)
+OPENROUTER_API_KEY="your-openrouter-api-key"
+
 # Upstash Redis (required for rate limiting)
 UPSTASH_REDIS_REST_URL=your_upstash_redis_url
 UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
@@ -331,6 +347,9 @@ AZURE_SUB_KEY="your-azure-subscription-key"
 # Google Custom Search API (Optional - if using Google as search provider)
 GOOGLE_SEARCH_API_KEY="your-google-search-api-key"
 GOOGLE_SEARCH_CX="your-google-search-cx"
+
+# EXA API Key (Optional - if using EXA as search provider)
+EXA_API_KEY="your-exa-api-key"
 ```
 
 Note: You only need to provide API keys for the platforms you plan to use. If a platform is enabled in the config but its API key is missing, those models will appear disabled in the UI.

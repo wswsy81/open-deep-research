@@ -2,31 +2,51 @@ import { NextResponse } from 'next/server'
 import { CONFIG } from '@/lib/config'
 import { generateWithModel } from '@/lib/models'
 import type { Report } from '@/types'
+import { reportContentRatelimit } from '@/lib/redis'
 
 export async function POST(request: Request) {
   try {
     const { reports, platformModel } = await request.json()
     const [platform, model] = platformModel.split('__')
 
+    if (CONFIG.rateLimits.enabled && platform !== 'ollama') {
+      const { success } = await reportContentRatelimit.limit('report')
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many requests' },
+          { status: 429 }
+        )
+      }
+    }
+
     console.log('Consolidating reports:', {
       numReports: reports.length,
       reportTitles: reports.map((r: Report) => r.title),
       platform,
-      model
+      model,
     })
 
     if (!reports?.length) {
-      return NextResponse.json({ error: 'Reports are required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Reports are required' },
+        { status: 400 }
+      )
     }
 
     const prompt = `Create a comprehensive consolidated report that synthesizes the following research reports:
 
-${reports.map((report: Report, index: number) => `
+${reports
+  .map(
+    (report: Report, index: number) => `
 Report ${index + 1} Title: ${report.title}
 Report ${index + 1} Summary: ${report.summary}
 Key Findings:
-${report.sections?.map(section => `- ${section.title}: ${section.content}`).join('\n')}
-`).join('\n\n')}
+${report.sections
+  ?.map((section) => `- ${section.title}: ${section.content}`)
+  .join('\n')}
+`
+  )
+  .join('\n\n')}
 
 Analyze and synthesize these reports to create a comprehensive consolidated report that:
 1. Identifies common themes and patterns across the reports
@@ -57,7 +77,7 @@ Return the response in the following JSON format:
 
     try {
       const response = await generateWithModel(prompt, platformModel)
-      
+
       if (!response) {
         throw new Error('No response from model')
       }
@@ -65,22 +85,23 @@ Return the response in the following JSON format:
       console.log('Model response:', response)
 
       // Try to parse the response as JSON, if it's not already
-      let parsedResponse;
+      let parsedResponse
       try {
-        parsedResponse = typeof response === 'string' ? JSON.parse(response) : response;
+        parsedResponse =
+          typeof response === 'string' ? JSON.parse(response) : response
         console.log('Parsed response:', parsedResponse)
       } catch (parseError) {
         console.error('Failed to parse response as JSON:', parseError)
         // If it's not JSON, create a basic report structure
         parsedResponse = {
-          title: "Consolidated Research Report",
-          summary: response.split('\n\n')[0] || "Summary not available",
+          title: 'Consolidated Research Report',
+          summary: response.split('\n\n')[0] || 'Summary not available',
           sections: [
             {
-              title: "Findings",
-              content: response
-            }
-          ]
+              title: 'Findings',
+              content: response,
+            },
+          ],
         }
       }
 
@@ -99,4 +120,4 @@ Return the response in the following JSON format:
       { status: 500 }
     )
   }
-} 
+}

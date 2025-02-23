@@ -117,7 +117,7 @@ Important: Do not use phrases like "Source 1" or "According to Source 2". Instea
 
     try {
       const response = await generateWithModel(systemPrompt, platformModel)
-      
+
       if (!response) {
         throw new Error('No response from model')
       }

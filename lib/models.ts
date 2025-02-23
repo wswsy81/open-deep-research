@@ -25,8 +25,11 @@ type DeepSeekMessage = {
   content: string
 }
 
-export async function generateWithGemini(systemPrompt: string, model: string): Promise<string> {
-  let result;
+export async function generateWithGemini(
+  systemPrompt: string,
+  model: string
+): Promise<string> {
+  let result
   if (model === 'gemini-flash-thinking') {
     result = await geminiFlashThinkingModel.generateContent(systemPrompt)
   } else if (model === 'gemini-exp') {
@@ -41,7 +44,10 @@ export async function generateWithGemini(systemPrompt: string, model: string): P
   return text
 }
 
-export async function generateWithOpenAI(systemPrompt: string, model: string): Promise<string> {
+export async function generateWithOpenAI(
+  systemPrompt: string,
+  model: string
+): Promise<string> {
   const response = await openai.chat.completions.create({
     model,
     messages: [
@@ -86,7 +92,10 @@ export async function generateWithDeepSeek(
       model === 'deepseek-reasoner' &&
       (response.choices[0].message as any).reasoning_content
     ) {
-      console.log('DeepSeek reasoning:', (response.choices[0].message as any).reasoning_content)
+      console.log(
+        'DeepSeek reasoning:',
+        (response.choices[0].message as any).reasoning_content
+      )
     }
 
     return content
@@ -118,7 +127,10 @@ export async function generateWithAnthropic(
   return content
 }
 
-export async function generateWithOllama(systemPrompt: string, model: string): Promise<string> {
+export async function generateWithOllama(
+  systemPrompt: string,
+  model: string
+): Promise<string> {
   const response = await ollama.chat({
     model: model.replace('ollama__', ''),
     messages: [{ role: 'user', content: systemPrompt }],
@@ -154,17 +166,26 @@ export async function generateWithOpenRouter(
     }
   )
 
+  const responseData = await response.text()
+
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`OpenRouter API error: ${error}`)
+    throw new Error(`OpenRouter API error: ${responseData}`)
   }
 
-  const data = await response.json()
-  const content = data.choices[0].message.content
-  if (!content) {
-    throw new Error('No response content from OpenRouter')
+  let data
+  try {
+    data = JSON.parse(responseData)
+  } catch (e) {
+    throw new Error(`Failed to parse OpenRouter response: ${responseData}`)
   }
-  return content
+
+  if (!data.choices?.[0]?.message?.content) {
+    throw new Error(
+      `Invalid OpenRouter response format: ${JSON.stringify(data)}`
+    )
+  }
+
+  return data.choices[0].message.content
 }
 
 export async function generateWithModel(

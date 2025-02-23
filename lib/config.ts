@@ -4,7 +4,7 @@ export const CONFIG = {
     enabled: true, // Flag to enable/disable rate limiting
     search: 10,
     contentFetch: 20,
-    reportGeneration: 2,
+    reportGeneration: 5,
   },
 
   // Search settings
