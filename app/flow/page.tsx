@@ -23,19 +23,12 @@ import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Brain, Search, FileText, Loader2 } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { SearchNode } from '@/components/flow/search-node'
 import { ReportNode } from '@/components/flow/report-node'
 import { SelectionNode } from '@/components/flow/selection-node'
 import { QuestionNode } from '@/components/flow/question-node'
-import type { SearchResult, Report, PlatformModel } from '@/types'
-import { CONFIG } from '@/lib/config'
+import type { SearchResult, Report } from '@/types'
+import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
 
 const nodeTypes: NodeTypes = {
   searchNode: SearchNode,
@@ -43,25 +36,6 @@ const nodeTypes: NodeTypes = {
   selectionNode: SelectionNode,
   questionNode: QuestionNode,
 }
-
-const DEFAULT_MODEL = 'google__gemini-flash'
-
-const platformModels = Object.entries(CONFIG.platforms)
-  .flatMap(([platform, config]) => {
-    if (!config.enabled) return []
-
-    return Object.entries(config.models).map(([modelId, modelConfig]) => {
-      return {
-        value: `${platform}__${modelId}`,
-        label: `${platform.charAt(0).toUpperCase() + platform.slice(1)} - ${
-          modelConfig.label
-        }`,
-        platform,
-        disabled: !modelConfig.enabled,
-      }
-    })
-  })
-  .filter(Boolean) as (PlatformModel & { disabled: boolean })[]
 
 interface ResearchNode extends Node {
   data: {
@@ -642,35 +616,11 @@ export default function FlowPage() {
               <p className='text-sm text-gray-500 whitespace-nowrap'>
                 Model for report generation:
               </p>
-              <Select
+              <ModelSelect
                 value={selectedModel}
                 onValueChange={setSelectedModel}
-                disabled={platformModels.length === 0}
-              >
-                <SelectTrigger className='w-full sm:w-[200px]'>
-                  <SelectValue
-                    placeholder={
-                      platformModels.length === 0
-                        ? 'No models available'
-                        : 'Select model'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {platformModels.map((model) => (
-                    <SelectItem
-                      key={model.value}
-                      value={model.value}
-                      disabled={model.disabled}
-                      className={
-                        model.disabled ? 'text-gray-400 cursor-not-allowed' : ''
-                      }
-                    >
-                      {model.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                triggerClassName='w-full sm:w-[200px]'
+              />
             </div>
             <Button
               onClick={handleConsolidateSelected}

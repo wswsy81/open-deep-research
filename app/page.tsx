@@ -43,6 +43,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { KnowledgeBaseSidebar } from '@/components/knowledge-base-sidebar'
 import { ReportActions } from '@/components/report-actions'
+import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
 
 const timeFilters = [
   { value: 'all', label: 'Any time' },
@@ -70,7 +71,6 @@ const platformModels = Object.entries(CONFIG.platforms)
   .filter(Boolean) as (PlatformModel & { disabled: boolean })[]
 
 const MAX_SELECTIONS = CONFIG.search.maxSelectableResults
-const DEFAULT_MODEL = 'google__gemini-flash'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -810,17 +810,6 @@ export default function Home() {
                 </Button>
                 <Button
                   asChild
-                  variant='default'
-                  size='sm'
-                  className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
-                >
-                  <a href='/flow'>
-                    <Share className='h-4 w-4' />
-                    Visual Flow
-                  </a>
-                </Button>
-                <Button
-                  asChild
                   variant='outline'
                   size='sm'
                   className='inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-full'
@@ -930,39 +919,13 @@ export default function Home() {
                           </SelectContent>
                         </Select>
 
-                        <Select
+                        <ModelSelect
                           value={state.selectedModel}
                           onValueChange={(value) =>
                             updateState({ selectedModel: value })
                           }
-                          disabled={platformModels.length === 0}
-                        >
-                          <SelectTrigger className='flex-1 sm:flex-initial sm:w-[200px]'>
-                            <SelectValue
-                              placeholder={
-                                platformModels.length === 0
-                                  ? 'No models available'
-                                  : 'Select model'
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {platformModels.map((model) => (
-                              <SelectItem
-                                key={model.value}
-                                value={model.value}
-                                disabled={model.disabled}
-                                className={
-                                  model.disabled
-                                    ? 'text-gray-400 cursor-not-allowed'
-                                    : ''
-                                }
-                              >
-                                {model.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          triggerClassName='flex-1 sm:flex-initial sm:w-[200px]'
+                        />
                       </div>
 
                       <Button
@@ -1017,39 +980,13 @@ export default function Home() {
                     </div>
                     <div className='flex flex-col sm:flex-row lg:flex-nowrap gap-2 sm:items-center'>
                       <div className='w-full sm:w-[200px]'>
-                        <Select
+                        <ModelSelect
                           value={state.selectedModel}
                           onValueChange={(value) =>
                             updateState({ selectedModel: value })
                           }
-                          disabled={platformModels.length === 0}
-                        >
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                platformModels.length === 0
-                                  ? 'No models available'
-                                  : 'Select model'
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {platformModels.map((model) => (
-                              <SelectItem
-                                key={model.value}
-                                value={model.value}
-                                disabled={model.disabled}
-                                className={
-                                  model.disabled
-                                    ? 'text-gray-400 cursor-not-allowed'
-                                    : ''
-                                }
-                              >
-                                {model.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          triggerClassName='w-full sm:w-[200px]'
+                        />
                       </div>
                       <Button
                         type='submit'
