@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server'
 import { CONFIG } from '@/lib/config'
-import {
-  generateWithGemini,
-  generateWithOpenAI,
-  generateWithDeepSeek,
-  generateWithAnthropic,
-  generateWithOllama,
-} from '@/lib/models'
+import { generateWithModel } from '@/lib/models'
 
 export async function POST(request: Request) {
   try {
@@ -42,35 +36,8 @@ Generate exactly 3 search terms and return them in the following JSON format:
 The search terms should be specific and focused on unexplored aspects of the topic.`
 
     try {
-      let response: string | null = null
-      switch (platform) {
-        case 'google':
-          if (!CONFIG.platforms.google.enabled) break
-          response = await generateWithGemini(prompt, model)
-          break
-        case 'openai':
-          if (!CONFIG.platforms.openai.enabled) break
-          response = await generateWithOpenAI(prompt, model)
-          break
-        case 'deepseek':
-          if (!CONFIG.platforms.deepseek.enabled) break
-          response = await generateWithDeepSeek(prompt, model)
-          break
-        case 'anthropic':
-          if (!CONFIG.platforms.anthropic.enabled) break
-          response = await generateWithAnthropic(prompt, model)
-          break
-        case 'ollama':
-          if (!CONFIG.platforms.ollama.enabled) break
-          response = await generateWithOllama(prompt, model)
-          break
-        default:
-          return NextResponse.json(
-            { error: 'Platform not enabled or invalid' },
-            { status: 400 }
-          )
-      }
-
+      const response = await generateWithModel(prompt, platformModel)
+      
       if (!response) {
         throw new Error('No response from model')
       }

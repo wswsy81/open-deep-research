@@ -3,13 +3,7 @@ import { reportContentRatelimit } from '@/lib/redis'
 import { type Article, type ModelVariant } from '@/types'
 import { CONFIG } from '@/lib/config'
 import { extractAndParseJSON } from '@/lib/utils'
-import {
-  generateWithGemini,
-  generateWithOpenAI,
-  generateWithDeepSeek,
-  generateWithAnthropic,
-  generateWithOllama,
-} from '@/lib/models'
+import { generateWithModel } from '@/lib/models'
 
 export const maxDuration = 60
 
@@ -122,27 +116,8 @@ Important: Do not use phrases like "Source 1" or "According to Source 2". Instea
     console.log('Model:', model)
 
     try {
-      let response: string | null = null
-      switch (platform) {
-        case 'google':
-          response = await generateWithGemini(systemPrompt, model)
-          break
-        case 'openai':
-          response = await generateWithOpenAI(systemPrompt, model)
-          break
-        case 'deepseek':
-          response = await generateWithDeepSeek(systemPrompt, model)
-          break
-        case 'anthropic':
-          response = await generateWithAnthropic(systemPrompt, model)
-          break
-        case 'ollama':
-          response = await generateWithOllama(systemPrompt, model)
-          break
-        default:
-          throw new Error('Invalid platform specified')
-      }
-
+      const response = await generateWithModel(systemPrompt, platformModel)
+      
       if (!response) {
         throw new Error('No response from model')
       }

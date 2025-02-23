@@ -59,6 +59,7 @@ export type ModelVariant =
   | 'deepseek__reasoner'
   | 'ollama__llama3.2'
   | 'ollama__deepseek-r1:14b'
+  | 'openrouter__auto'
 
 export type Status = {
   loading: boolean

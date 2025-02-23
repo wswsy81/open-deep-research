@@ -25,20 +25,23 @@ type DeepSeekMessage = {
   content: string
 }
 
-export async function generateWithGemini(systemPrompt: string, model: string) {
+export async function generateWithGemini(systemPrompt: string, model: string): Promise<string> {
+  let result;
   if (model === 'gemini-flash-thinking') {
-    const result = await geminiFlashThinkingModel.generateContent(systemPrompt)
-    return result.response.text()
+    result = await geminiFlashThinkingModel.generateContent(systemPrompt)
   } else if (model === 'gemini-exp') {
-    const result = await geminiModel.generateContent(systemPrompt)
-    return result.response.text()
+    result = await geminiModel.generateContent(systemPrompt)
   } else {
-    const result = await geminiFlashModel.generateContent(systemPrompt)
-    return result.response.text()
+    result = await geminiFlashModel.generateContent(systemPrompt)
   }
+  const text = result.response.text()
+  if (!text) {
+    throw new Error('No response content from Gemini')
+  }
+  return text
 }
 
-export async function generateWithOpenAI(systemPrompt: string, model: string) {
+export async function generateWithOpenAI(systemPrompt: string, model: string): Promise<string> {
   const response = await openai.chat.completions.create({
     model,
     messages: [
@@ -48,15 +51,18 @@ export async function generateWithOpenAI(systemPrompt: string, model: string) {
       },
     ],
   })
-  return response.choices[0].message.content
+  const content = response.choices[0].message.content
+  if (!content) {
+    throw new Error('No response content from OpenAI')
+  }
+  return content
 }
 
 export async function generateWithDeepSeek(
   systemPrompt: string,
   model: string
-) {
+): Promise<string> {
   try {
-    // Initial message to start the conversation
     const messages: DeepSeekMessage[] = [
       {
         role: 'user',
@@ -70,18 +76,17 @@ export async function generateWithDeepSeek(
       max_tokens: 4000,
     })
 
-    // Get the initial response
-    const content = response.choices[0].message.content || ''
+    const content = response.choices[0].message.content
+    if (!content) {
+      throw new Error('No response content from DeepSeek')
+    }
 
     // For the reasoner model, we can get additional reasoning content
-    let reasoning = ''
-    const messageWithReasoning = response.choices[0].message as any
     if (
       model === 'deepseek-reasoner' &&
-      messageWithReasoning.reasoning_content
+      (response.choices[0].message as any).reasoning_content
     ) {
-      reasoning = messageWithReasoning.reasoning_content
-      console.log('DeepSeek reasoning:', reasoning)
+      console.log('DeepSeek reasoning:', (response.choices[0].message as any).reasoning_content)
     }
 
     return content
@@ -94,7 +99,7 @@ export async function generateWithDeepSeek(
 export async function generateWithAnthropic(
   systemPrompt: string,
   model: string
-) {
+): Promise<string> {
   const response = await anthropic.messages.create({
     model,
     max_tokens: 3500,
@@ -106,14 +111,82 @@ export async function generateWithAnthropic(
       },
     ],
   })
-  return response.content[0].text || ''
+  const content = response.content[0].text
+  if (!content) {
+    throw new Error('No response content from Anthropic')
+  }
+  return content
 }
 
-export async function generateWithOllama(systemPrompt: string, model: string) {
+export async function generateWithOllama(systemPrompt: string, model: string): Promise<string> {
   const response = await ollama.chat({
     model: model.replace('ollama__', ''),
     messages: [{ role: 'user', content: systemPrompt }],
   })
-  console.log('ollama response', response)
-  return response.message.content
+  const content = response.message.content
+  if (!content) {
+    throw new Error('No response content from Ollama')
+  }
+  return content
+}
+
+export async function generateWithOpenRouter(
+  systemPrompt: string,
+  model: string
+): Promise<string> {
+  const response = await fetch(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model.replace('openrouter__', ''),
+        messages: [
+          {
+            role: 'user',
+            content: systemPrompt,
+          },
+        ],
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OpenRouter API error: ${error}`)
+  }
+
+  const data = await response.json()
+  const content = data.choices[0].message.content
+  if (!content) {
+    throw new Error('No response content from OpenRouter')
+  }
+  return content
+}
+
+export async function generateWithModel(
+  systemPrompt: string,
+  platformModel: string
+): Promise<string> {
+  const [platform, model] = platformModel.split('__')
+
+  switch (platform) {
+    case 'google':
+      return generateWithGemini(systemPrompt, model)
+    case 'openai':
+      return generateWithOpenAI(systemPrompt, model)
+    case 'deepseek':
+      return generateWithDeepSeek(systemPrompt, model)
+    case 'anthropic':
+      return generateWithAnthropic(systemPrompt, model)
+    case 'ollama':
+      return generateWithOllama(systemPrompt, model)
+    case 'openrouter':
+      return generateWithOpenRouter(systemPrompt, model)
+    default:
+      throw new Error('Invalid platform specified')
+  }
 }

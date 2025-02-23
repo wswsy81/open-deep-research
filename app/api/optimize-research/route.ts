@@ -2,13 +2,7 @@ import { NextResponse } from 'next/server'
 import { reportContentRatelimit } from '@/lib/redis'
 import { CONFIG } from '@/lib/config'
 import { extractAndParseJSON } from '@/lib/utils'
-import {
-  generateWithGemini,
-  generateWithOpenAI,
-  generateWithDeepSeek,
-  generateWithAnthropic,
-  generateWithOllama,
-} from '@/lib/models'
+import { generateWithModel } from '@/lib/models'
 import { type ModelVariant } from '@/types'
 
 export async function POST(request: Request) {
@@ -106,27 +100,8 @@ Format your response as a JSON object with this structure:
 Make the query clear and focused, avoiding overly complex or lengthy constructions.`
 
     try {
-      let response: string | null = null
-      switch (platform) {
-        case 'google':
-          response = await generateWithGemini(systemPrompt, model)
-          break
-        case 'openai':
-          response = await generateWithOpenAI(systemPrompt, model)
-          break
-        case 'deepseek':
-          response = await generateWithDeepSeek(systemPrompt, model)
-          break
-        case 'anthropic':
-          response = await generateWithAnthropic(systemPrompt, model)
-          break
-        case 'ollama':
-          response = await generateWithOllama(systemPrompt, model)
-          break
-        default:
-          throw new Error('Invalid platform specified')
-      }
-
+      const response = await generateWithModel(systemPrompt, platformModel)
+      
       if (!response) {
         throw new Error('No response from model')
       }
