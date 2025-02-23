@@ -1015,8 +1015,18 @@ export default function Home() {
                     <Button
                       type='button'
                       variant='outline'
-                      size='icon'
                       onClick={handleAddCustomUrl}
+                      className='hidden sm:inline-flex items-center gap-2'
+                    >
+                      <Plus className='h-4 w-4' />
+                      Add URL
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      onClick={handleAddCustomUrl}
+                      className='sm:hidden'
+                      size='icon'
                     >
                       <Plus className='h-4 w-4' />
                     </Button>
@@ -1030,8 +1040,16 @@ export default function Home() {
                       <Button
                         type='button'
                         variant='outline'
+                        className='hidden sm:inline-flex items-center gap-2 pointer-events-none'
+                      >
+                        <UploadIcon className='h-4 w-4' />
+                        Upload File
+                      </Button>
+                      <Button
+                        type='button'
+                        variant='outline'
                         size='icon'
-                        className='pointer-events-none'
+                        className='sm:hidden pointer-events-none'
                       >
                         <UploadIcon className='h-4 w-4' />
                       </Button>
