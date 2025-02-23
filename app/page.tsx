@@ -15,7 +15,6 @@ import {
   Brain,
   Code,
   Loader2,
-  Share,
 } from 'lucide-react'
 import {
   Select,
@@ -52,23 +51,6 @@ const timeFilters = [
   { value: 'month', label: 'Past month' },
   { value: 'year', label: 'Past year' },
 ] as const
-
-const platformModels = Object.entries(CONFIG.platforms)
-  .flatMap(([platform, config]) => {
-    if (!config.enabled) return []
-
-    return Object.entries(config.models).map(([modelId, modelConfig]) => {
-      return {
-        value: `${platform}__${modelId}`,
-        label: `${platform.charAt(0).toUpperCase() + platform.slice(1)} - ${
-          modelConfig.label
-        }`,
-        platform,
-        disabled: !modelConfig.enabled,
-      }
-    })
-  })
-  .filter(Boolean) as (PlatformModel & { disabled: boolean })[]
 
 const MAX_SELECTIONS = CONFIG.search.maxSelectableResults
 
