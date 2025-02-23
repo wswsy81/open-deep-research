@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast'
 import { KnowledgeBaseSidebar } from '@/components/knowledge-base-sidebar'
 import { ReportActions } from '@/components/report-actions'
 import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
+import { handleLocalFile, SUPPORTED_FILE_TYPES } from '@/lib/file-upload'
 
 const timeFilters = [
   { value: 'all', label: 'Any time' },
@@ -784,74 +785,35 @@ export default function Home() {
       const file = e.target.files?.[0]
       if (!file) return
 
-      try {
-        // Start loading state
-        updateState({ error: null })
-        updateStatus({ loading: true })
-
-        let content = ''
-        if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-          content = await file.text()
-        } else if (
-          file.type === 'application/pdf' ||
-          file.name.endsWith('.pdf') ||
-          file.type ===
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-          file.name.endsWith('.docx')
-        ) {
-          // Send the file to our parsing endpoint
-          const formData = new FormData()
-          formData.append('file', file)
-
-          const response = await fetch('/api/parse-document', {
-            method: 'POST',
-            body: formData,
+      const result = await handleLocalFile(
+        file,
+        (loading) => {
+          updateState({ error: null })
+          updateStatus({ loading })
+        },
+        (error, context) => {
+          toast({
+            title: context,
+            description: error instanceof Error ? error.message : String(error),
+            variant: 'destructive',
           })
-
-          if (!response.ok) {
-            const errorData = await response
-              .json()
-              .catch(() => ({ error: 'Failed to parse document' }))
-            throw new Error(errorData.error || 'Failed to parse document')
-          }
-
-          const data = await response.json()
-          content = data.content
-        } else {
-          throw new Error(
-            'Unsupported file type. Only TXT, PDF, and DOCX files are supported.'
-          )
+          updateState({
+            error: error instanceof Error ? error.message : String(error),
+          })
         }
+      )
 
-        // Truncate content to a reasonable snippet size
-        const snippet =
-          content.slice(0, 500) + (content.length > 500 ? '...' : '')
-
-        // Create a search result from the file
-        const timestamp = Date.now()
-        const newResult: SearchResult = {
-          id: `file-${timestamp}-${file.name}`,
-          url: URL.createObjectURL(file),
-          name: file.name,
-          snippet: snippet,
-          isCustomUrl: true,
-          content: content, // Store full content for report generation
-        }
-
+      if (result) {
         setState((prev: State) => ({
           ...prev,
-          results: [newResult, ...prev.results],
+          results: [result, ...prev.results],
         }))
-
-        // Reset the file input
-        e.target.value = ''
-      } catch (error) {
-        handleError(error, 'File Upload Error')
-      } finally {
-        updateStatus({ loading: false })
       }
+
+      // Reset the file input
+      e.target.value = ''
     },
-    [handleError, updateState, updateStatus]
+    [setState, updateState, updateStatus, toast]
   )
 
   return (
@@ -1058,7 +1020,7 @@ export default function Home() {
                         type='file'
                         onChange={handleFileUpload}
                         className='absolute inset-0 opacity-0 cursor-pointer'
-                        accept='.txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                        accept={SUPPORTED_FILE_TYPES}
                       />
                       <Button
                         type='button'

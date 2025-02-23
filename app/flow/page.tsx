@@ -29,6 +29,8 @@ import { SelectionNode } from '@/components/flow/selection-node'
 import { QuestionNode } from '@/components/flow/question-node'
 import type { SearchResult, Report } from '@/types'
 import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
+import { handleLocalFile } from '@/lib/file-upload'
+import { useToast } from '@/hooks/use-toast'
 
 const nodeTypes: NodeTypes = {
   searchNode: SearchNode,
@@ -56,6 +58,7 @@ interface ResearchNode extends Node {
     onSelect?: (id: string) => void
     isConsolidated?: boolean
     isConsolidating?: boolean
+    onFileUpload?: (file: File) => void
   }
 }
 
@@ -67,6 +70,7 @@ export default function FlowPage() {
   const [selectedReports, setSelectedReports] = useState<string[]>([])
   const [isConsolidating, setIsConsolidating] = useState(false)
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
+  const { toast } = useToast()
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) =>
@@ -158,6 +162,78 @@ export default function FlowPage() {
     zIndex: 0,
   })
 
+  const handleFileUpload = async (
+    file: File,
+    searchNodeId: string,
+    groupId: string
+  ) => {
+    const result = await handleLocalFile(
+      file,
+      (loading) => {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === searchNodeId
+              ? { ...node, data: { ...node.data, loading } }
+              : node
+          )
+        )
+      },
+      (error, context) => {
+        toast({
+          title: context,
+          description: error instanceof Error ? error.message : String(error),
+          variant: 'destructive',
+        })
+      }
+    )
+
+    if (result) {
+      setNodes((nds) => {
+        const selectionNode = nds.find(
+          (n) => n.type === 'selectionNode' && n.parentId === groupId
+        )
+
+        if (selectionNode) {
+          return nds.map((node) =>
+            node.id === selectionNode.id
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    results: [result, ...(node.data.results || [])],
+                  },
+                }
+              : node.id === searchNodeId
+              ? { ...node, data: { ...node.data, loading: false } }
+              : node
+          )
+        }
+
+        const newSelectionNode = createNode(
+          'selectionNode',
+          { x: 100, y: 200 },
+          {
+            results: [result],
+            onGenerateReport: (selected, prompt) => {
+              handleGenerateReport(selected, searchNodeId, groupId, prompt)
+            },
+            childIds: [],
+          },
+          groupId
+        )
+
+        return [
+          ...nds.map((n) =>
+            n.id === searchNodeId
+              ? { ...n, data: { ...n.data, loading: false } }
+              : n
+          ),
+          newSelectionNode,
+        ]
+      })
+    }
+  }
+
   const handleStartResearch = async (parentReportId?: string) => {
     if (!query.trim()) return
 
@@ -191,6 +267,8 @@ export default function FlowPage() {
           query,
           loading: true,
           childIds: [],
+          onFileUpload: (file: File) =>
+            handleFileUpload(file, searchNode.id, groupNode.id),
         },
         groupNode.id
       )
@@ -342,6 +420,14 @@ export default function FlowPage() {
     try {
       const contentResults = await Promise.all(
         selectedResults.map(async (result) => {
+          if (result.content) {
+            return {
+              url: result.url,
+              title: result.name,
+              content: result.content,
+            }
+          }
+
           try {
             const response = await fetch('/api/fetch-content', {
               method: 'POST',
