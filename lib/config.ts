@@ -11,7 +11,7 @@ export const CONFIG = {
   search: {
     resultsPerPage: 10,
     maxSelectableResults: 3,
-    provider: 'exa' as 'google' | 'bing' | 'exa', // Default search provider
+    provider: 'google' as 'google' | 'bing' | 'exa', // Default search provider
     safeSearch: {
       google: 'active' as 'active' | 'off',
       bing: 'moderate' as 'moderate' | 'strict' | 'off',
