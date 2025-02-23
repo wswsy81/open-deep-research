@@ -416,6 +416,13 @@ You'll need two components to use Google Custom Search:
    - After creation, find your Search Engine ID in the "Overview" page's "Basic" section
    - Copy the ID (this is the `cx` parameter) for the `GOOGLE_SEARCH_CX` environment variable
 
+#### EXA API Key
+
+1. Visit [EXA Platform](https://exa.ai/)
+2. Sign up or log in to your account
+3. Go to API Keys section
+4. Create a new API key
+
 #### Google Gemini API Key
 
 1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
@@ -439,6 +446,13 @@ You'll need two components to use Google Custom Search:
 #### DeepSeek API Key
 
 1. Visit [DeepSeek Platform](https://platform.deepseek.com)
+2. Sign up or log in to your account
+3. Go to API Keys section
+4. Create a new API key
+
+#### OpenRouter API Key
+
+1. Visit [OpenRouter Platform](https://openrouter.ai/)
 2. Sign up or log in to your account
 3. Go to API Keys section
 4. Create a new API key

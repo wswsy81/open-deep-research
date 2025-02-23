@@ -24,13 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
-import type {
-  SearchResult,
-  RankingResult,
-  PlatformModel,
-  Status,
-  State,
-} from '@/types'
+import type { SearchResult, RankingResult, Status, State } from '@/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CONFIG } from '@/lib/config'

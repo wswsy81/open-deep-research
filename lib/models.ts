@@ -176,6 +176,7 @@ export async function generateWithOpenRouter(
   try {
     data = JSON.parse(responseData)
   } catch (e) {
+    console.log('error', e)
     throw new Error(`Failed to parse OpenRouter response: ${responseData}`)
   }
 

@@ -36,7 +36,9 @@ export async function POST(request: Request) {
     const platform = platformModel.split('__')[0]
     const model = platformModel.split('__')[1]
     if (CONFIG.rateLimits.enabled && platform !== 'ollama') {
-      const { success } = await reportContentRatelimit.limit('optimize')
+      const { success } = await reportContentRatelimit.limit(
+        'agentOptimizations'
+      )
       if (!success) {
         return NextResponse.json(
           { error: 'Too many requests' },
@@ -101,7 +103,7 @@ Make the query clear and focused, avoiding overly complex or lengthy constructio
 
     try {
       const response = await generateWithModel(systemPrompt, platformModel)
-      
+
       if (!response) {
         throw new Error('No response from model')
       }

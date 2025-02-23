@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const platform = platformModel.split('__')[0]
     const model = platformModel.split('__')[1]
     if (CONFIG.rateLimits.enabled && platform !== 'ollama') {
-      const { success } = await reportContentRatelimit.limit('analyze')
+      const { success } = await reportContentRatelimit.limit('agentOptimizations')
       if (!success) {
         return NextResponse.json(
           { error: 'Too many requests' },

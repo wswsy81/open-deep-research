@@ -5,6 +5,7 @@ export const CONFIG = {
     search: 10,
     contentFetch: 20,
     reportGeneration: 5,
+    agentOptimizations: 10,
   },
 
   // Search settings

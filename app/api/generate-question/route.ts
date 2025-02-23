@@ -1,11 +1,23 @@
 import { NextResponse } from 'next/server'
 import { CONFIG } from '@/lib/config'
 import { generateWithModel } from '@/lib/models'
-
+import { reportContentRatelimit } from '@/lib/redis'
 export async function POST(request: Request) {
   try {
     const { report, platformModel } = await request.json()
-    const [platform, model] = platformModel.split('__')
+    const platform = platformModel.split('__')[0]
+
+    if (CONFIG.rateLimits.enabled && platform !== 'ollama') {
+      const { success } = await reportContentRatelimit.limit(
+        'agentOptimizations'
+      )
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many requests' },
+          { status: 429 }
+        )
+      }
+    }
 
     if (!report) {
       return NextResponse.json({ error: 'Report is required' }, { status: 400 })
@@ -37,7 +49,7 @@ The search terms should be specific and focused on unexplored aspects of the top
 
     try {
       const response = await generateWithModel(prompt, platformModel)
-      
+
       if (!response) {
         throw new Error('No response from model')
       }
@@ -45,18 +57,24 @@ The search terms should be specific and focused on unexplored aspects of the top
       try {
         // Parse the JSON response
         const jsonResponse = JSON.parse(response)
-        if (!Array.isArray(jsonResponse.searchTerms) || jsonResponse.searchTerms.length !== 3) {
+        if (
+          !Array.isArray(jsonResponse.searchTerms) ||
+          jsonResponse.searchTerms.length !== 3
+        ) {
           throw new Error('Invalid search terms format')
         }
-        
+
         return NextResponse.json({ searchTerms: jsonResponse.searchTerms })
       } catch (parseError) {
         console.error('Failed to parse JSON response:', parseError)
         // Fallback to line-based parsing if JSON parsing fails
         const searchTerms = response
           .split('\n')
-          .map(term => term.trim())
-          .filter(term => term.length > 0 && !term.includes('{') && !term.includes('}'))
+          .map((term) => term.trim())
+          .filter(
+            (term) =>
+              term.length > 0 && !term.includes('{') && !term.includes('}')
+          )
           .slice(0, 3)
 
         return NextResponse.json({ searchTerms })
