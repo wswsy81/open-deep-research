@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -411,19 +411,24 @@ export default function Home() {
     ]
   )
 
-  // Modify generateReport to use form submission
+  // Add effect to handle form submission after query update
+  useEffect(() => {
+    if (
+      state.query === state.reportPrompt &&
+      state.reportPrompt &&
+      state.selectedResults.length > 0
+    ) {
+      if (formRef.current) {
+        formRef.current.dispatchEvent(
+          new Event('submit', { cancelable: true, bubbles: true })
+        )
+      }
+    }
+  }, [state.query, state.reportPrompt, state.selectedResults.length])
+
   const generateReport = useCallback(() => {
     if (!state.reportPrompt || state.selectedResults.length === 0) return
-
-    // Update query with report prompt before submitting
     updateState({ query: state.reportPrompt })
-
-    // Submit form programmatically
-    if (formRef.current) {
-      formRef.current.dispatchEvent(
-        new Event('submit', { cancelable: true, bubbles: true })
-      )
-    }
   }, [state.reportPrompt, state.selectedResults.length, updateState])
 
   // Memoized agent search handler
