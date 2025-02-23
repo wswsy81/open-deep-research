@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatDistanceToNow } from 'date-fns'
-import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
+import { useKnowledgeBase } from '@/hooks/use-knowledge-base'
 import { useState } from 'react'
 import {
   Sheet,

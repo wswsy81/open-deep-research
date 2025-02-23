@@ -9,7 +9,7 @@ import { type KnowledgeBaseReport } from '@/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
-import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
+import { useKnowledgeBase } from '@/hooks/use-knowledge-base'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ReportActions } from '@/components/report-actions'
 

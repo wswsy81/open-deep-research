@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
-import { useKnowledgeBase } from '@/lib/hooks/use-knowledge-base'
+import { useKnowledgeBase } from '@/hooks/use-knowledge-base'
 import type { Report } from '@/types'
 
 interface ReportActionsProps {
