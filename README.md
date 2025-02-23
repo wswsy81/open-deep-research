@@ -38,6 +38,7 @@ The app supports analyzing local files for research and report generation. You c
 - Combine insights from both local files and web sources
 
 To use local files:
+
 1. Click the upload button (⬆️) in the search interface
 2. Select your file (supported formats: TXT, PDF, DOCX)
 3. The file will appear as a custom source in your results
