@@ -28,6 +28,21 @@ Open Deep Research combines powerful tools to streamline research and report cre
 - ⚡ Rate limiting for stability
 - 📱 Responsive design
 
+### Local File Support
+
+The app supports analyzing local files for research and report generation. You can:
+
+- Upload TXT, PDF, and DOCX files directly through the interface
+- Process local documents alongside web search results
+- Generate reports from local files without requiring web search
+- Combine insights from both local files and web sources
+
+To use local files:
+1. Click the upload button (⬆️) in the search interface
+2. Select your file (supported formats: TXT, PDF, DOCX)
+3. The file will appear as a custom source in your results
+4. Select it and click "Generate Report" to analyze its contents
+
 ### Knowledge Base
 
 The Knowledge Base feature allows you to:
