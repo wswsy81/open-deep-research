@@ -218,9 +218,9 @@ platforms: {
   openrouter: {
     enabled: true,
     models: {
-      'auto': {
+      'openrouter/auto': {
         enabled: false,
-        label: 'OpenRouter (Auto)',
+        label: 'Auto',
       },
     },
   },
