@@ -9,6 +9,7 @@ type SearchResultInput = {
   title: string
   snippet: string
   url: string
+  content?: string
 }
 
 export async function POST(request: Request) {
@@ -111,6 +112,7 @@ Result ${index + 1}:
 Title: ${result.title}
 URL: ${result.url}
 Snippet: ${result.snippet}
+${result.content ? `Full Content: ${result.content}` : ''}
 ---`
   )
   .join('\n')}

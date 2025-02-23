@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Search,
   FileText,
+  UploadIcon,
   Plus,
   X,
   ChevronDown,
@@ -241,6 +242,26 @@ export default function Home() {
             state.results
               .filter((r) => state.selectedResults.includes(r.id))
               .map(async (article) => {
+                // If the article already has content (e.g. from file upload), use it directly
+                if (article.content) {
+                  updateStatus((prev: Status) => ({
+                    ...prev,
+                    fetchStatus: {
+                      ...prev.fetchStatus,
+                      successful: prev.fetchStatus.successful + 1,
+                      sourceStatuses: {
+                        ...prev.fetchStatus.sourceStatuses,
+                        [article.url]: 'fetched' as const,
+                      },
+                    },
+                  }))
+                  return {
+                    url: article.url,
+                    title: article.name,
+                    content: article.content,
+                  }
+                }
+
                 try {
                   const { content } = await fetchContent(article.url)
                   if (content) {
@@ -528,6 +549,7 @@ export default function Home() {
                 title: r.name,
                 snippet: r.snippet,
                 url: r.url,
+                content: r.content,
               })),
               isTestQuery: query.toLowerCase() === 'test',
               platformModel: state.selectedModel,
@@ -619,6 +641,26 @@ export default function Home() {
 
         const contentResults = await Promise.all(
           selected.map(async (article: SearchResult) => {
+            // If the article already has content (e.g. from file upload), use it directly
+            if (article.content) {
+              updateStatus((prev: Status) => ({
+                ...prev,
+                fetchStatus: {
+                  ...prev.fetchStatus,
+                  successful: prev.fetchStatus.successful + 1,
+                  sourceStatuses: {
+                    ...prev.fetchStatus.sourceStatuses,
+                    [article.url]: 'fetched' as const,
+                  },
+                },
+              }))
+              return {
+                url: article.url,
+                title: article.name,
+                content: article.content,
+              }
+            }
+
             try {
               const { content } = await fetchContent(article.url)
               if (content) {
@@ -735,6 +777,82 @@ export default function Home() {
       selectedResults: prev.selectedResults.filter((id) => id !== resultId),
     }))
   }, [])
+
+  // Add file upload handler
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      try {
+        // Start loading state
+        updateState({ error: null })
+        updateStatus({ loading: true })
+
+        let content = ''
+        if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+          content = await file.text()
+        } else if (
+          file.type === 'application/pdf' ||
+          file.name.endsWith('.pdf') ||
+          file.type ===
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          file.name.endsWith('.docx')
+        ) {
+          // Send the file to our parsing endpoint
+          const formData = new FormData()
+          formData.append('file', file)
+
+          const response = await fetch('/api/parse-document', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!response.ok) {
+            const errorData = await response
+              .json()
+              .catch(() => ({ error: 'Failed to parse document' }))
+            throw new Error(errorData.error || 'Failed to parse document')
+          }
+
+          const data = await response.json()
+          content = data.content
+        } else {
+          throw new Error(
+            'Unsupported file type. Only TXT, PDF, and DOCX files are supported.'
+          )
+        }
+
+        // Truncate content to a reasonable snippet size
+        const snippet =
+          content.slice(0, 500) + (content.length > 500 ? '...' : '')
+
+        // Create a search result from the file
+        const timestamp = Date.now()
+        const newResult: SearchResult = {
+          id: `file-${timestamp}-${file.name}`,
+          url: URL.createObjectURL(file),
+          name: file.name,
+          snippet: snippet,
+          isCustomUrl: true,
+          content: content, // Store full content for report generation
+        }
+
+        setState((prev: State) => ({
+          ...prev,
+          results: [newResult, ...prev.results],
+        }))
+
+        // Reset the file input
+        e.target.value = ''
+      } catch (error) {
+        handleError(error, 'File Upload Error')
+      } finally {
+        updateStatus({ loading: false })
+      }
+    },
+    [handleError, updateState, updateStatus]
+  )
 
   return (
     <div className='min-h-screen bg-white p-4 sm:p-8'>
@@ -935,6 +1053,22 @@ export default function Home() {
                     >
                       <Plus className='h-4 w-4' />
                     </Button>
+                    <div className='relative'>
+                      <Input
+                        type='file'
+                        onChange={handleFileUpload}
+                        className='absolute inset-0 opacity-0 cursor-pointer'
+                        accept='.txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                      />
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon'
+                        className='pointer-events-none'
+                      >
+                        <UploadIcon className='h-4 w-4' />
+                      </Button>
+                    </div>
                   </div>
                 </>
               ) : (

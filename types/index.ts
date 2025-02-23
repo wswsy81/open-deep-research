@@ -31,6 +31,7 @@ export type SearchResult = {
   snippet: string
   isCustomUrl?: boolean
   score?: number
+  content?: string
 }
 
 export type RankingResult = {
