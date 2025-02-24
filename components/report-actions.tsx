@@ -27,8 +27,15 @@ export function ReportActions({
   className = '',
   hideKnowledgeBase = false,
 }: ReportActionsProps) {
-  const { addReport } = useKnowledgeBase()
+  const { addReport, reports } = useKnowledgeBase()
   const { toast } = useToast()
+
+  // Check if report is already saved by comparing title and summary
+  const isReportSaved = reports.some(
+    (savedReport) =>
+      savedReport.report.title === report.title &&
+      savedReport.report.summary === report.summary
+  )
 
   const handleDownload = async (format: 'pdf' | 'docx' | 'txt') => {
     try {
@@ -60,6 +67,7 @@ export function ReportActions({
   }
 
   const handleSaveToKnowledgeBase = () => {
+    if (isReportSaved) return
     const success = addReport(report, prompt || '')
     if (success) {
       toast({
@@ -99,9 +107,10 @@ export function ReportActions({
         size={size}
         className='gap-2'
         onClick={handleCopy}
+        title='Copy report'
       >
         <Copy className='h-4 w-4' />
-        Copy
+        <span className='hidden sm:inline'>Copy</span>
       </Button>
       {!hideKnowledgeBase && (
         <Button
@@ -109,16 +118,25 @@ export function ReportActions({
           size={size}
           className='gap-2'
           onClick={handleSaveToKnowledgeBase}
+          disabled={isReportSaved}
+          title={isReportSaved ? 'Already saved' : 'Save to Knowledge Base'}
         >
           <Brain className='h-4 w-4' />
-          Save
+          <span className='hidden sm:inline'>
+            {isReportSaved ? 'Saved' : 'Save to Knowledge Base'}
+          </span>
         </Button>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant={variant} size={size} className='gap-2'>
+          <Button
+            variant={variant}
+            size={size}
+            className='gap-2'
+            title='Download'
+          >
             <Download className='h-4 w-4' />
-            Download
+            <span className='hidden sm:inline'>Download</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end'>
