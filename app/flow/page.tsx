@@ -672,6 +672,30 @@ export default function FlowPage() {
     <div className='h-screen flex flex-col'>
       <div className='p-4 border-b'>
         <div className='max-w-4xl mx-auto flex flex-col gap-4'>
+          <div className='flex justify-around sm:justify-start items-center gap-2 mb-0 sm:mb-0 sm:absolute sm:top-2 sm:left-4'>
+            <Button
+              asChild
+              variant='ghost'
+              size='default'
+              className='whitespace-nowrap'
+            >
+              <a href='/'>Home</a>
+            </Button>
+            <Button
+              asChild
+              variant='ghost'
+              size='default'
+              className='whitespace-nowrap'
+            >
+              <a
+                href='https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f'
+                target='_blank'
+                rel='noopener noreferrer'
+              >
+                Watch a demo
+              </a>
+            </Button>
+          </div>
           <div className='flex flex-col sm:flex-row gap-4'>
             <Input
               value={query}
