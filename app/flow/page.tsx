@@ -31,6 +31,7 @@ import type { SearchResult, Report } from '@/types'
 import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
 import { handleLocalFile } from '@/lib/file-upload'
 import { useToast } from '@/hooks/use-toast'
+import Link from 'next/link'
 
 const nodeTypes: NodeTypes = {
   searchNode: SearchNode,
@@ -679,7 +680,7 @@ export default function FlowPage() {
               size='default'
               className='whitespace-nowrap'
             >
-              <a href='/'>Home</a>
+              <Link href='/'>Home</Link>
             </Button>
             <Button
               asChild
@@ -687,13 +688,13 @@ export default function FlowPage() {
               size='default'
               className='whitespace-nowrap'
             >
-              <a
+              <Link
                 href='https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f'
                 target='_blank'
                 rel='noopener noreferrer'
               >
                 Watch a demo
-              </a>
+              </Link>
             </Button>
           </div>
           <div className='flex flex-col sm:flex-row gap-4'>
