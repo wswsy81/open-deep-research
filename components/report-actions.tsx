@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Brain, Download } from 'lucide-react'
+import { Brain, Download, Copy } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,8 +69,40 @@ export function ReportActions({
     }
   }
 
+  const handleCopy = async () => {
+    try {
+      const formattedContent = `${report.title}\n\n${
+        report.summary
+      }\n\n${report.sections
+        .map((section) => `${section.title}\n${section.content}`)
+        .join('\n\n')}`
+
+      await navigator.clipboard.writeText(formattedContent)
+      toast({
+        title: 'Copied',
+        description: 'Report content copied to clipboard',
+      })
+    } catch (error) {
+      toast({
+        title: 'Copy failed',
+        description:
+          error instanceof Error ? error.message : 'Failed to copy content',
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <div className={`flex gap-2 ${className}`}>
+      <Button
+        variant={variant}
+        size={size}
+        className='gap-2'
+        onClick={handleCopy}
+      >
+        <Copy className='h-4 w-4' />
+        Copy
+      </Button>
       {!hideKnowledgeBase && (
         <Button
           variant={variant}
@@ -79,7 +111,7 @@ export function ReportActions({
           onClick={handleSaveToKnowledgeBase}
         >
           <Brain className='h-4 w-4' />
-          Save to Knowledge Base
+          Save
         </Button>
       )}
       <DropdownMenu>
