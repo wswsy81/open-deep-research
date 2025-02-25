@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type {
   Node,
   Edge,
@@ -22,7 +22,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Brain, Search, FileText, Loader2 } from 'lucide-react'
+import { Brain, Search, FileText, Loader2, Save, AlertTriangle } from 'lucide-react'
 import { SearchNode } from '@/components/flow/search-node'
 import { ReportNode } from '@/components/flow/report-node'
 import { SelectionNode } from '@/components/flow/selection-node'
@@ -31,7 +31,11 @@ import type { SearchResult, Report } from '@/types'
 import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
 import { handleLocalFile } from '@/lib/file-upload'
 import { useToast } from '@/hooks/use-toast'
+import { useFlowProjects } from '@/hooks/use-flow-projects'
+import { ProjectSelector } from '@/components/project-selector'
 import Link from 'next/link'
+import { ProjectActions } from '@/components/project-actions'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const nodeTypes: NodeTypes = {
   searchNode: SearchNode,
@@ -72,6 +76,38 @@ export default function FlowPage() {
   const [isConsolidating, setIsConsolidating] = useState(false)
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
   const { toast } = useToast()
+  const {
+    projects,
+    currentProject,
+    setCurrentProject,
+    createProject,
+    updateCurrentProject,
+    deleteProject,
+    saveCurrentState,
+    exportProjects,
+    importProjects,
+    storageInfo,
+    refreshStorageInfo,
+  } = useFlowProjects()
+
+  // Initialize from current project
+  useEffect(() => {
+    if (currentProject) {
+      setNodes(currentProject.nodes as ResearchNode[])
+      setEdges(currentProject.edges)
+      setQuery(currentProject.query)
+    }
+  }, [currentProject])
+
+  // Auto-save state to current project whenever it changes
+  useEffect(() => {
+    // We use a debounce-like approach to avoid too many saves
+    const saveTimer = setTimeout(() => {
+      saveCurrentState(nodes, edges, query)
+    }, 1000)
+    
+    return () => clearTimeout(saveTimer)
+  }, [nodes, edges, query, saveCurrentState])
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) =>
@@ -669,34 +705,97 @@ export default function FlowPage() {
     }
   }
 
+  const handleCreateNewProject = (name: string) => {
+    createProject(name)
+    setNodes([])
+    setEdges([])
+    setQuery('')
+  }
+
+  const handleRenameProject = (id: string, name: string) => {
+    if (currentProject && currentProject.id === id) {
+      updateCurrentProject({ name })
+    }
+  }
+
   return (
     <div className='h-screen flex flex-col'>
-      <div className='p-4 border-b'>
-        <div className='max-w-4xl mx-auto flex flex-col gap-4'>
-          <div className='flex justify-around sm:justify-start items-center gap-2 mb-0 sm:mb-0 sm:absolute sm:top-2 sm:left-4'>
-            <Button
-              asChild
-              variant='ghost'
-              size='default'
-              className='whitespace-nowrap'
-            >
-              <Link href='/'>Home</Link>
-            </Button>
-            <Button
-              asChild
-              variant='ghost'
-              size='default'
-              className='whitespace-nowrap'
-            >
-              <Link
-                href='https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                Watch a demo
-              </Link>
-            </Button>
+      <nav className='border-b bg-white shadow-sm'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='flex justify-between h-16'>
+            {/* Logo and main navigation */}
+            <div className='flex items-center'>
+              <div className='flex-shrink-0 flex items-center'>
+                <Link href='/' className='font-bold text-xl text-primary'>
+                  Open Deep Research
+                </Link>
+              </div>
+              <div className='hidden sm:ml-6 sm:flex sm:space-x-4'>
+                <Button asChild variant='ghost' size='sm'>
+                  <Link href='/'>Home</Link>
+                </Button>
+                <Button asChild variant='ghost' size='sm'>
+                  <Link
+                    href='https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    Watch Demo
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            
+            {/* Project controls */}
+            <div className='flex items-center gap-2'>
+              <ProjectSelector
+                projects={projects}
+                currentProject={currentProject}
+                onSelectProject={setCurrentProject}
+                onCreateProject={handleCreateNewProject}
+                onDeleteProject={deleteProject}
+                onRenameProject={handleRenameProject}
+              />
+              <ProjectActions
+                exportProjects={exportProjects}
+                importProjects={importProjects}
+                storageInfo={storageInfo}
+                refreshStorageInfo={refreshStorageInfo}
+              />
+              
+              {/* Mobile menu */}
+              <div className='sm:hidden flex items-center'>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                      </svg>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href='/'>Home</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href='https://www.loom.com/share/3c4d9811ac1d47eeaa7a0907c43aef7f'
+                        target='_blank'
+                        rel='noopener noreferrer'
+                      >
+                        Watch Demo
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
           </div>
+        </div>
+      </nav>
+
+      <div className='p-4 bg-gray-50'>
+        <div className='max-w-4xl mx-auto flex flex-col gap-4'>
           <div className='flex flex-col sm:flex-row gap-4'>
             <Input
               value={query}
@@ -754,10 +853,11 @@ export default function FlowPage() {
           </div>
         </div>
       </div>
-      <div className='flex-1 w-full'>
+      <div className='flex-1 w-full h-0 relative overflow-hidden'>
         {nodes.some((node) => node.data.error) && (
-          <div className='p-4 mb-4 bg-red-50 border-l-4 border-red-500'>
+          <div className='absolute top-0 left-0 right-0 z-10 p-3 bg-red-50 border-b border-red-200'>
             <div className='max-w-4xl mx-auto flex items-center gap-2 text-red-700'>
+              <AlertTriangle className="h-4 w-4" />
               <p className='text-sm'>
                 {nodes.find((node) => node.data.error)?.data.error ||
                   'An error occurred during the operation. Please try again.'}
@@ -776,10 +876,19 @@ export default function FlowPage() {
           minZoom={0.1}
           maxZoom={1.5}
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+          className="transition-all duration-200"
         >
-          <MiniMap nodeStrokeWidth={3} />
+          <MiniMap 
+            nodeStrokeWidth={3} 
+            className="!bottom-4 !right-4 !left-auto"
+            pannable
+            zoomable
+          />
           <Background />
-          <Controls />
+          <Controls 
+            className="!top-4 !right-4 !left-auto !bottom-auto"
+            showInteractive={false}
+          />
         </ReactFlow>
       </div>
     </div>
