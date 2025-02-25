@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import type {
   Node,
   Edge,
@@ -10,6 +10,7 @@ import type {
   EdgeChange,
   XYPosition,
   EdgeTypes,
+  CoordinateExtent,
 } from '@xyflow/react'
 import {
   ReactFlow,
@@ -84,199 +85,40 @@ interface ResearchNode extends Node {
     isConsolidating?: boolean
     onFileUpload?: (file: File) => void
   }
+  style?: React.CSSProperties
+  extent?: 'parent' | CoordinateExtent
 }
 
-export default function FlowPage() {
-  const [nodes, setNodes] = useState<ResearchNode[]>([])
-  const [edges, setEdges] = useState<Edge[]>([])
-  const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [selectedReports, setSelectedReports] = useState<string[]>([])
-  const [isConsolidating, setIsConsolidating] = useState(false)
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
-  const { toast } = useToast()
-  const {
-    projects,
-    currentProject,
-    setCurrentProject,
-    createProject,
-    updateCurrentProject,
-    deleteProject,
-    saveCurrentState,
-    exportProjects,
-    importProjects,
-    storageInfo,
-    refreshStorageInfo,
-  } = useFlowProjects()
+// Configuration for different node types
+const NODE_CONFIG = {
+  group: { zIndex: 0 },
+  searchNode: { zIndex: 1 },
+  selectionNode: { zIndex: 2 },
+  reportNode: { zIndex: 3 },
+  questionNode: { zIndex: 3 }
+};
 
-  // Auto-save state to current project whenever it changes
-  useEffect(() => {
-    // We use a debounce-like approach to avoid too many saves
-    const saveTimer = setTimeout(() => {
-      saveCurrentState(nodes, edges, query, selectedReports)
-    }, 1000)
+// Group node style
+const GROUP_NODE_STYLE: React.CSSProperties = {
+  width: 800,
+  height: 1600,
+  padding: 60,
+  backgroundColor: 'rgba(240, 240, 240, 0.5)',
+  borderRadius: 8,
+};
 
-    return () => clearTimeout(saveTimer)
-  }, [nodes, edges, query, selectedReports, saveCurrentState])
-
-  // Initialize from current project
-  useEffect(() => {
-    if (currentProject) {
-      console.log('Loading project:', currentProject.name)
-      console.log('Selected reports:', currentProject.selectedReports || [])
-
-      // First set selected reports
-      if (
-        currentProject.selectedReports &&
-        currentProject.selectedReports.length > 0
-      ) {
-        setSelectedReports(currentProject.selectedReports)
-      } else {
-        setSelectedReports([])
-      }
-
-      // Then set nodes with the selection state
-      const nodesWithSelectionAndCallbacks = (
-        currentProject.nodes as ResearchNode[]
-      ).map((node) => {
-        if (node.type === 'reportNode') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              id: node.id, // Ensure ID is in the data
-              isSelected: (currentProject.selectedReports || []).includes(
-                node.id
-              ),
-              onSelect: (id: string) => handleReportSelect(id),
-            },
-          }
-        }
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            id: node.id, // Ensure ID is in the data
-          },
-        }
-      })
-
-      setNodes(nodesWithSelectionAndCallbacks)
-      setEdges(currentProject.edges)
-      setQuery(currentProject.query)
-    }
-  }, [currentProject])
-
-  // Add useEffect to update node isSelected state when selectedReports changes
-  useEffect(() => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.type === 'reportNode') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              isSelected: selectedReports.includes(node.id),
-            },
-          }
-        }
-        return node
-      })
-    )
-  }, [selectedReports, setNodes])
-
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) =>
-      setNodes((nds) => applyNodeChanges(changes, nds)),
-    [setNodes]
-  )
-
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) =>
-      setEdges((eds) => applyEdgeChanges(changes, eds)),
-    [setEdges]
-  )
-
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    []
-  )
-
-  const createNode = (
-    type: string,
-    position: XYPosition,
-    data: ResearchNode['data'],
-    parentId?: string
-  ): ResearchNode => {
-    const id = data.id || `${type}-${Date.now()}`
-
-    let zIndex = 0
-    switch (type) {
-      case 'group':
-        zIndex = 0
-        break
-      case 'searchNode':
-        zIndex = 1
-        break
-      case 'selectionNode':
-        zIndex = 2
-        break
-      case 'reportNode':
-      case 'questionNode':
-        zIndex = 3
-        break
-      default:
-        zIndex = 1
-    }
-
-    const nodeData =
-      type === 'reportNode'
-        ? {
-            ...data,
-            id,
-            childIds: data.childIds || [],
-            isSelected: selectedReports.includes(id),
-            onSelect: (nodeId: string) => handleReportSelect(nodeId),
-            isConsolidating,
-          }
-        : { ...data, id, childIds: data.childIds || [] }
-
-    return {
-      id,
-      type,
-      position: {
-        x: Math.max(0, Math.round(position.x)),
-        y: Math.max(0, Math.round(position.y)),
-      },
-      data: nodeData,
-      parentId,
-      extent: 'parent',
-      zIndex,
-    }
-  }
-
-  const createGroupNode = (
-    position: XYPosition,
-    query: string
-  ): ResearchNode => ({
-    id: `group-${Date.now()}`,
-    type: 'group',
-    position,
-    style: {
-      width: 800,
-      height: 1600,
-      padding: 60,
-      backgroundColor: 'rgba(240, 240, 240, 0.5)',
-      borderRadius: 8,
-    },
-    data: {
-      query,
-      childIds: [],
-    },
-    zIndex: 0,
-  })
-
-  const handleFileUpload = async (
+// Custom hook for handling the research workflow
+function useResearchFlow(
+  createNode: (type: string, position: XYPosition, data: Partial<ResearchNode['data']>, parentId?: string) => ResearchNode,
+  setNodes: React.Dispatch<React.SetStateAction<ResearchNode[]>>,
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
+  selectedModel: string
+) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  
+  // Handle file upload for search nodes
+  const handleFileUpload = useCallback(async (
     file: File,
     searchNodeId: string,
     groupId: string
@@ -346,33 +188,38 @@ export default function FlowPage() {
         ]
       })
     }
-  }
+  }, [createNode, setNodes, toast]);
 
-  const handleStartResearch = async (parentReportId?: string) => {
-    if (!query.trim()) return
+  // Start a new research flow
+  const startResearch = useCallback(async (
+    query: string,
+    parentReportId?: string,
+    nodes?: ResearchNode[]
+  ) => {
+    if (!query.trim()) return;
 
-    setLoading(true)
+    setLoading(true);
     try {
       const randomOffset = {
         x: Math.floor(Math.random() * 600) - 300,
         y: Math.floor(Math.random() * 300),
-      }
+      };
 
       const basePosition = {
         x: parentReportId
-          ? nodes.find((n) => n.id === parentReportId)?.position.x || 0
-          : nodes.length * 200,
+          ? nodes?.find((n) => n.id === parentReportId)?.position.x || 0
+          : (nodes?.length || 0) * 200,
         y: parentReportId
-          ? (nodes.find((n) => n.id === parentReportId)?.position.y || 0) + 400
+          ? (nodes?.find((n) => n.id === parentReportId)?.position.y || 0) + 400
           : 0,
-      }
+      };
 
       const groupPosition = {
         x: Math.max(0, basePosition.x + randomOffset.x),
         y: Math.max(0, basePosition.y + randomOffset.y),
-      }
+      };
 
-      const groupNode = createGroupNode(groupPosition, query)
+      const groupNode = createNode('group', groupPosition, { query });
 
       const searchNode = createNode(
         'searchNode',
@@ -385,9 +232,9 @@ export default function FlowPage() {
             handleFileUpload(file, searchNode.id, groupNode.id),
         },
         groupNode.id
-      )
+      );
 
-      setNodes((nds) => [...nds, groupNode, searchNode])
+      setNodes((nds) => [...nds, groupNode, searchNode]);
 
       const response = await fetch('/api/search', {
         method: 'POST',
@@ -397,19 +244,20 @@ export default function FlowPage() {
           timeFilter: 'all',
           platformModel: selectedModel,
         }),
-      })
+      });
 
       if (!response.ok) {
         const errorData = await response
           .json()
-          .catch(() => ({ error: 'Search failed' }))
-        throw new Error(errorData.error || `Search failed: ${response.status}`)
+          .catch(() => ({ error: 'Search failed' }));
+        throw new Error(errorData.error || `Search failed: ${response.status}`);
       }
-      const data = await response.json()
-      console.log('Search response:', data)
+      
+      const data = await response.json();
+      console.log('Search response:', data);
 
       if (!data.webPages?.value?.length) {
-        throw new Error('No search results found')
+        throw new Error('No search results found');
       }
 
       const searchResults = data.webPages.value.map((result: any) => ({
@@ -418,9 +266,9 @@ export default function FlowPage() {
         name: result.name || result.title,
         snippet: result.snippet,
         isCustomUrl: false,
-      }))
+      }));
 
-      console.log('Transformed search results:', searchResults)
+      console.log('Transformed search results:', searchResults);
 
       const selectionNode = createNode(
         'selectionNode',
@@ -428,22 +276,22 @@ export default function FlowPage() {
         {
           results: searchResults,
           onGenerateReport: (selected, prompt) => {
-            console.log('Generate report clicked with:', selected, prompt)
-            handleGenerateReport(selected, searchNode.id, groupNode.id, prompt)
+            console.log('Generate report clicked with:', selected, prompt);
+            handleGenerateReport(selected, searchNode.id, groupNode.id, prompt);
           },
           childIds: [],
         },
         groupNode.id
-      )
+      );
 
       setNodes((nds) => {
         const updatedNodes = nds.map((node) =>
           node.id === searchNode.id
             ? { ...node, data: { ...node.data, loading: false } }
             : node
-        )
-        return [...updatedNodes, selectionNode]
-      })
+        );
+        return [...updatedNodes, selectionNode];
+      });
 
       setEdges((eds) => [
         ...eds,
@@ -453,9 +301,9 @@ export default function FlowPage() {
           target: selectionNode.id,
           animated: true,
         },
-      ])
+      ]);
     } catch (error) {
-      console.error('Search error:', error)
+      console.error('Search error:', error);
       setNodes((nds) =>
         nds.map((node) =>
           node.data.loading
@@ -470,13 +318,14 @@ export default function FlowPage() {
               }
             : node
         )
-      )
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, [createNode, selectedModel, setEdges, setNodes]);
 
-  const handleGenerateReport = async (
+  // Generate a report from selected search results
+  const handleGenerateReport = useCallback(async (
     selectedResults: SearchResult[],
     searchNodeId: string,
     groupId: string,
@@ -487,11 +336,11 @@ export default function FlowPage() {
       searchNodeId,
       groupId,
       prompt,
-    })
+    });
 
     if (selectedResults.length === 0) {
-      console.error('No results selected')
-      return
+      console.error('No results selected');
+      return;
     }
 
     const reportNode = createNode(
@@ -502,7 +351,7 @@ export default function FlowPage() {
         hasChildren: false,
       },
       groupId
-    )
+    );
 
     const searchTermsNode = createNode(
       'questionNode',
@@ -511,9 +360,9 @@ export default function FlowPage() {
         loading: true,
       },
       groupId
-    )
+    );
 
-    setNodes((nds) => [...nds, reportNode, searchTermsNode])
+    setNodes((nds) => [...nds, reportNode, searchTermsNode]);
 
     setEdges((eds) => [
       ...eds,
@@ -529,7 +378,7 @@ export default function FlowPage() {
         target: searchTermsNode.id,
         animated: true,
       },
-    ])
+    ]);
 
     try {
       const contentResults = await Promise.all(
@@ -539,7 +388,7 @@ export default function FlowPage() {
               url: result.url,
               title: result.name,
               content: result.content,
-            }
+            };
           }
 
           try {
@@ -547,28 +396,28 @@ export default function FlowPage() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: result.url }),
-            })
-            if (!response.ok) throw new Error('Failed to fetch content')
-            const { content } = await response.json()
+            });
+            if (!response.ok) throw new Error('Failed to fetch content');
+            const { content } = await response.json();
             return {
               url: result.url,
               title: result.name,
               content: content || result.snippet,
-            }
+            };
           } catch (error) {
-            console.error('Content fetch error:', error)
+            console.error('Content fetch error:', error);
             return {
               url: result.url,
               title: result.name,
               content: result.snippet,
-            }
+            };
           }
         })
-      )
+      );
 
-      const validResults = contentResults.filter((r) => r.content?.trim())
+      const validResults = contentResults.filter((r) => r.content?.trim());
       if (validResults.length === 0) {
-        throw new Error('No valid content found in selected results')
+        throw new Error('No valid content found in selected results');
       }
 
       const reportResponse = await fetch('/api/report', {
@@ -581,19 +430,19 @@ export default function FlowPage() {
             prompt || 'Provide comprehensive analysis of the selected sources.',
           platformModel: selectedModel,
         }),
-      })
+      });
 
       if (!reportResponse.ok) {
         const errorData = await reportResponse
           .json()
-          .catch(() => ({ error: 'Failed to generate report' }))
+          .catch(() => ({ error: 'Failed to generate report' }));
         throw new Error(
           errorData.error ||
             `Failed to generate report: ${reportResponse.status}`
-        )
+        );
       }
 
-      const report = await reportResponse.json()
+      const report = await reportResponse.json();
 
       const searchTermsResponse = await fetch('/api/generate-question', {
         method: 'POST',
@@ -602,19 +451,19 @@ export default function FlowPage() {
           report,
           platformModel: selectedModel,
         }),
-      })
+      });
 
       if (!searchTermsResponse.ok) {
         const errorData = await searchTermsResponse
           .json()
-          .catch(() => ({ error: 'Failed to generate search terms' }))
+          .catch(() => ({ error: 'Failed to generate search terms' }));
         throw new Error(
           errorData.error ||
             `Failed to generate search terms: ${searchTermsResponse.status}`
-        )
+        );
       }
 
-      const { searchTerms } = await searchTermsResponse.json()
+      const { searchTerms } = await searchTermsResponse.json();
 
       setNodes((nds) =>
         nds.map((node) => {
@@ -626,7 +475,7 @@ export default function FlowPage() {
                 report,
                 loading: false,
               },
-            }
+            };
           }
           if (node.id === searchTermsNode.id) {
             return {
@@ -637,17 +486,20 @@ export default function FlowPage() {
                 loading: false,
                 onApprove: (term?: string) => {
                   if (term) {
-                    setQuery(term)
+                    // Pass up the term to set the query
+                    return term;
                   }
                 },
               },
-            }
+            };
           }
-          return node
+          return node;
         })
-      )
+      );
+      
+      return { success: true, report, searchTerms };
     } catch (error) {
-      console.error('Report generation error:', error)
+      console.error('Report generation error:', error);
       setNodes((nds) =>
         nds.map((node) => {
           if (node.id === reportNode.id || node.id === searchTermsNode.id) {
@@ -659,58 +511,49 @@ export default function FlowPage() {
                 error:
                   error instanceof Error ? error.message : 'Generation failed',
               },
-            }
+            };
           }
-          return node
+          return node;
         })
-      )
+      );
+      return { success: false, error };
     }
-  }
+  }, [createNode, selectedModel, setEdges, setNodes]);
 
-  const handleReportSelect = (reportId: string) => {
-    console.log(`Report selection toggled: ${reportId}`)
+  return {
+    loading,
+    startResearch,
+    handleGenerateReport,
+    handleFileUpload
+  };
+}
 
-    setSelectedReports((prev) => {
-      const isCurrentlySelected = prev.includes(reportId)
-      const newSelected = isCurrentlySelected
-        ? prev.filter((id) => id !== reportId)
-        : [...prev, reportId]
+// Custom hook for handling consolidation of reports
+function useConsolidation(
+  createNode: (type: string, position: XYPosition, data: Partial<ResearchNode['data']>, parentId?: string) => ResearchNode,
+  nodes: ResearchNode[],
+  setNodes: React.Dispatch<React.SetStateAction<ResearchNode[]>>,
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
+  selectedModel: string
+) {
+  const [isConsolidating, setIsConsolidating] = useState(false);
 
-      // Immediately update the node to prevent UI lag
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === reportId
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  isSelected: !isCurrentlySelected,
-                },
-              }
-            : node
-        )
-      )
-
-      return newSelected
-    })
-  }
-
-  const handleConsolidateSelected = async () => {
+  const consolidateReports = useCallback(async (selectedReports: string[]) => {
     if (selectedReports.length < 2) {
-      console.error('Select at least 2 reports to consolidate')
-      return
+      console.error('Select at least 2 reports to consolidate');
+      return { success: false, error: 'Select at least 2 reports to consolidate' };
     }
 
-    setIsConsolidating(true)
+    setIsConsolidating(true);
     try {
       const reportsToConsolidate = nodes
         .filter((node) => selectedReports.includes(node.id) && node.data.report)
-        .map((node) => node.data.report!)
+        .map((node) => node.data.report!);
 
       console.log('Consolidating reports:', {
         numReports: reportsToConsolidate.length,
         reportTitles: reportsToConsolidate.map((r) => r.title),
-      })
+      });
 
       const response = await fetch('/api/consolidate-report', {
         method: 'POST',
@@ -719,15 +562,16 @@ export default function FlowPage() {
           reports: reportsToConsolidate,
           platformModel: selectedModel,
         }),
-      })
+      });
 
       if (!response.ok)
-        throw new Error('Failed to generate consolidated report')
-      const consolidated: Report = await response.json()
+        throw new Error('Failed to generate consolidated report');
+      const consolidated: Report = await response.json();
 
-      console.log('Received consolidated report:', consolidated)
+      console.log('Received consolidated report:', consolidated);
 
-      const groupNode = createGroupNode(
+      const groupNode = createNode(
+        'group',
         {
           x:
             Math.max(
@@ -741,8 +585,8 @@ export default function FlowPage() {
             )
           ),
         },
-        'Consolidated Research'
-      )
+        { query: 'Consolidated Research' }
+      );
 
       const consolidatedNode = createNode(
         'reportNode',
@@ -755,7 +599,7 @@ export default function FlowPage() {
           isConsolidated: true,
         },
         groupNode.id
-      )
+      );
 
       setNodes((nds) => {
         const updatedNodes = nds.map((node) => {
@@ -763,12 +607,12 @@ export default function FlowPage() {
             return {
               ...node,
               data: { ...node.data, isSelected: false },
-            }
+            };
           }
-          return node
-        })
-        return [...updatedNodes, groupNode, consolidatedNode]
-      })
+          return node;
+        });
+        return [...updatedNodes, groupNode, consolidatedNode];
+      });
 
       setEdges((eds) => [
         ...eds,
@@ -779,28 +623,244 @@ export default function FlowPage() {
           animated: true,
           type: 'consolidated',
         })),
-      ])
+      ]);
 
-      setSelectedReports([])
+      return { success: true, consolidated };
     } catch (error) {
-      console.error('Consolidation error:', error)
+      console.error('Consolidation error:', error);
+      return { success: false, error };
     } finally {
-      setIsConsolidating(false)
+      setIsConsolidating(false);
     }
-  }
+  }, [createNode, nodes, selectedModel, setEdges, setNodes]);
 
-  const handleCreateNewProject = (name: string) => {
+  return {
+    isConsolidating,
+    consolidateReports
+  };
+}
+
+export default function FlowPage() {
+  const [nodes, setNodes] = useState<ResearchNode[]>([])
+  const [edges, setEdges] = useState<Edge[]>([])
+  const [query, setQuery] = useState('')
+  const [selectedReports, setSelectedReports] = useState<string[]>([])
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
+  const { toast } = useToast()
+  const {
+    projects,
+    currentProject,
+    setCurrentProject,
+    createProject,
+    updateCurrentProject,
+    deleteProject,
+    saveCurrentState,
+    exportProjects,
+    importProjects,
+    storageInfo,
+    refreshStorageInfo,
+  } = useFlowProjects()
+
+  // Memoized functions for node and edge changes
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    []
+  )
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    []
+  )
+
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    []
+  )
+
+  // Report selection handler
+  const handleReportSelect = useCallback((reportId: string) => {
+    console.log(`Report selection toggled: ${reportId}`)
+
+    setSelectedReports((prev) => {
+      const isCurrentlySelected = prev.includes(reportId)
+      const newSelected = isCurrentlySelected
+        ? prev.filter((id) => id !== reportId)
+        : [...prev, reportId]
+
+      return newSelected
+    })
+  }, [])
+
+  // Generic function to create nodes
+  const createNode = useCallback(
+    (
+      type: string,
+      position: XYPosition,
+      data: Partial<ResearchNode['data']>,
+      parentId?: string
+    ): ResearchNode => {
+      const id = data.id || `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+      
+      const zIndex = NODE_CONFIG[type as keyof typeof NODE_CONFIG]?.zIndex || 1;
+      
+      // Special handling for report nodes
+      const nodeData = 
+        type === 'reportNode'
+          ? {
+              ...data,
+              id,
+              childIds: data.childIds || [],
+              isSelected: selectedReports.includes(id),
+              onSelect: (nodeId: string) => handleReportSelect(nodeId),
+              isConsolidating: false, // Will be updated by consolidation hook when needed
+            }
+          : { ...data, id, childIds: data.childIds || [] };
+
+      const node: ResearchNode = {
+        id,
+        type,
+        position: {
+          x: Math.max(0, Math.round(position.x)),
+          y: Math.max(0, Math.round(position.y)),
+        },
+        data: nodeData as ResearchNode['data'],
+        parentId,
+        extent: 'parent',
+        zIndex,
+      };
+      
+      // Apply group style if it's a group node
+      if (type === 'group') {
+        node.style = GROUP_NODE_STYLE;
+      }
+      
+      return node;
+    },
+    [selectedReports]
+  )
+
+  // Use the research flow hook
+  const { 
+    loading: researchLoading, 
+    startResearch, 
+    handleGenerateReport,
+    handleFileUpload
+  } = useResearchFlow(createNode, setNodes, setEdges, selectedModel);
+
+  // Use the consolidation hook
+  const {
+    isConsolidating,
+    consolidateReports
+  } = useConsolidation(createNode, nodes, setNodes, setEdges, selectedModel);
+
+  // Auto-save state to current project whenever it changes
+  useEffect(() => {
+    const saveTimer = setTimeout(() => {
+      saveCurrentState(nodes, edges, query, selectedReports)
+    }, 1000)
+
+    return () => clearTimeout(saveTimer)
+  }, [nodes, edges, query, selectedReports, saveCurrentState])
+
+  // Initialize from current project
+  useEffect(() => {
+    if (currentProject) {
+      console.log('Loading project:', currentProject.name)
+      console.log('Selected reports:', currentProject.selectedReports || [])
+
+      // First set selected reports
+      if (
+        currentProject.selectedReports &&
+        currentProject.selectedReports.length > 0
+      ) {
+        setSelectedReports(currentProject.selectedReports)
+      } else {
+        setSelectedReports([])
+      }
+
+      // Then set nodes with the selection state
+      const nodesWithSelectionAndCallbacks = (
+        currentProject.nodes as ResearchNode[]
+      ).map((node) => {
+        if (node.type === 'reportNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              id: node.id, // Ensure ID is in the data
+              isSelected: (currentProject.selectedReports || []).includes(
+                node.id
+              ),
+              onSelect: (id: string) => handleReportSelect(id),
+            },
+          }
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            id: node.id, // Ensure ID is in the data
+          },
+        }
+      })
+
+      setNodes(nodesWithSelectionAndCallbacks)
+      setEdges(currentProject.edges)
+      setQuery(currentProject.query)
+    }
+  }, [currentProject, handleReportSelect])
+
+  // Update node isSelected state when selectedReports changes
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.type === 'reportNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              isSelected: selectedReports.includes(node.id),
+            },
+          }
+        }
+        return node
+      })
+    )
+  }, [selectedReports])
+
+  // Simplified handler that uses the research flow hook
+  const handleStartResearch = useCallback(async (parentReportId?: string) => {
+    if (!query.trim()) return;
+    await startResearch(query, parentReportId, nodes);
+  }, [query, nodes, startResearch]);
+
+  // Handle report consolidation
+  const handleConsolidateSelected = useCallback(async () => {
+    const result = await consolidateReports(selectedReports);
+    if (result.success) {
+      setSelectedReports([]);
+    } else if (result.error) {
+      toast({
+        title: "Consolidation Failed",
+        description: String(result.error),
+        variant: "destructive"
+      });
+    }
+  }, [consolidateReports, selectedReports, toast]);
+
+  // Project management functions
+  const handleCreateNewProject = useCallback((name: string) => {
     createProject(name)
     setNodes([])
     setEdges([])
     setQuery('')
-  }
+  }, [createProject, setNodes, setEdges, setQuery]);
 
-  const handleRenameProject = (id: string, name: string) => {
+  const handleRenameProject = useCallback((id: string, name: string) => {
     if (currentProject && currentProject.id === id) {
       updateCurrentProject({ name })
     }
-  }
+  }, [currentProject, updateCurrentProject]);
 
   // Debug function to check node selection state
   useEffect(() => {
@@ -925,10 +985,10 @@ export default function FlowPage() {
             />
             <Button
               onClick={() => handleStartResearch()}
-              disabled={loading}
+              disabled={researchLoading}
               className='gap-2 whitespace-nowrap'
             >
-              {loading ? (
+              {researchLoading ? (
                 <>
                   <Brain className='h-4 w-4 animate-spin' />
                   Researching...
