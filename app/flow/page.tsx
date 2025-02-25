@@ -9,6 +9,7 @@ import type {
   NodeChange,
   EdgeChange,
   XYPosition,
+  EdgeTypes,
 } from '@xyflow/react'
 import {
   ReactFlow,
@@ -22,11 +23,19 @@ import {
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Brain, Search, FileText, Loader2, Save, AlertTriangle } from 'lucide-react'
+import {
+  Brain,
+  Search,
+  FileText,
+  Loader2,
+  Save,
+  AlertTriangle,
+} from 'lucide-react'
 import { SearchNode } from '@/components/flow/search-node'
 import { ReportNode } from '@/components/flow/report-node'
 import { SelectionNode } from '@/components/flow/selection-node'
 import { QuestionNode } from '@/components/flow/question-node'
+import { ConsolidatedEdge } from '@/components/flow/consolidated-edge'
 import type { SearchResult, Report } from '@/types'
 import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
 import { handleLocalFile } from '@/lib/file-upload'
@@ -35,7 +44,12 @@ import { useFlowProjects } from '@/hooks/use-flow-projects'
 import { ProjectSelector } from '@/components/project-selector'
 import Link from 'next/link'
 import { ProjectActions } from '@/components/project-actions'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const nodeTypes: NodeTypes = {
   searchNode: SearchNode,
@@ -44,8 +58,13 @@ const nodeTypes: NodeTypes = {
   questionNode: QuestionNode,
 }
 
+const edgeTypes: EdgeTypes = {
+  consolidated: ConsolidatedEdge,
+}
+
 interface ResearchNode extends Node {
   data: {
+    id?: string
     query?: string
     loading?: boolean
     results?: SearchResult[]
@@ -90,24 +109,81 @@ export default function FlowPage() {
     refreshStorageInfo,
   } = useFlowProjects()
 
+  // Auto-save state to current project whenever it changes
+  useEffect(() => {
+    // We use a debounce-like approach to avoid too many saves
+    const saveTimer = setTimeout(() => {
+      saveCurrentState(nodes, edges, query, selectedReports)
+    }, 1000)
+
+    return () => clearTimeout(saveTimer)
+  }, [nodes, edges, query, selectedReports, saveCurrentState])
+
   // Initialize from current project
   useEffect(() => {
     if (currentProject) {
-      setNodes(currentProject.nodes as ResearchNode[])
+      console.log('Loading project:', currentProject.name)
+      console.log('Selected reports:', currentProject.selectedReports || [])
+
+      // First set selected reports
+      if (
+        currentProject.selectedReports &&
+        currentProject.selectedReports.length > 0
+      ) {
+        setSelectedReports(currentProject.selectedReports)
+      } else {
+        setSelectedReports([])
+      }
+
+      // Then set nodes with the selection state
+      const nodesWithSelectionAndCallbacks = (
+        currentProject.nodes as ResearchNode[]
+      ).map((node) => {
+        if (node.type === 'reportNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              id: node.id, // Ensure ID is in the data
+              isSelected: (currentProject.selectedReports || []).includes(
+                node.id
+              ),
+              onSelect: (id: string) => handleReportSelect(id),
+            },
+          }
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            id: node.id, // Ensure ID is in the data
+          },
+        }
+      })
+
+      setNodes(nodesWithSelectionAndCallbacks)
       setEdges(currentProject.edges)
       setQuery(currentProject.query)
     }
   }, [currentProject])
 
-  // Auto-save state to current project whenever it changes
+  // Add useEffect to update node isSelected state when selectedReports changes
   useEffect(() => {
-    // We use a debounce-like approach to avoid too many saves
-    const saveTimer = setTimeout(() => {
-      saveCurrentState(nodes, edges, query)
-    }, 1000)
-    
-    return () => clearTimeout(saveTimer)
-  }, [nodes, edges, query, saveCurrentState])
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.type === 'reportNode') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              isSelected: selectedReports.includes(node.id),
+            },
+          }
+        }
+        return node
+      })
+    )
+  }, [selectedReports, setNodes])
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) =>
@@ -132,7 +208,7 @@ export default function FlowPage() {
     data: ResearchNode['data'],
     parentId?: string
   ): ResearchNode => {
-    const id = `${type}-${Date.now()}`
+    const id = data.id || `${type}-${Date.now()}`
 
     let zIndex = 0
     switch (type) {
@@ -157,12 +233,13 @@ export default function FlowPage() {
       type === 'reportNode'
         ? {
             ...data,
+            id,
             childIds: data.childIds || [],
             isSelected: selectedReports.includes(id),
-            onSelect: (id: string) => handleReportSelect(id),
+            onSelect: (nodeId: string) => handleReportSelect(nodeId),
             isConsolidating,
           }
-        : { ...data, childIds: data.childIds || [] }
+        : { ...data, id, childIds: data.childIds || [] }
 
     return {
       id,
@@ -591,17 +668,24 @@ export default function FlowPage() {
   }
 
   const handleReportSelect = (reportId: string) => {
+    console.log(`Report selection toggled: ${reportId}`)
+
     setSelectedReports((prev) => {
-      const newSelected = prev.includes(reportId)
+      const isCurrentlySelected = prev.includes(reportId)
+      const newSelected = isCurrentlySelected
         ? prev.filter((id) => id !== reportId)
         : [...prev, reportId]
 
+      // Immediately update the node to prevent UI lag
       setNodes((nds) =>
         nds.map((node) =>
           node.id === reportId
             ? {
                 ...node,
-                data: { ...node.data, isSelected: !prev.includes(reportId) },
+                data: {
+                  ...node.data,
+                  isSelected: !isCurrentlySelected,
+                },
               }
             : node
         )
@@ -718,6 +802,27 @@ export default function FlowPage() {
     }
   }
 
+  // Debug function to check node selection state
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // @ts-ignore
+      window.debugFlowSelection = () => {
+        console.log('Current selected reports:', selectedReports)
+        console.log(
+          'Report nodes:',
+          nodes
+            .filter((n) => n.type === 'reportNode')
+            .map((n) => ({
+              id: n.id,
+              isSelected: n.data.isSelected,
+              onSelect: Boolean(n.data.onSelect),
+              report: n.data.report?.title,
+            }))
+        )
+      }
+    }
+  }, [nodes, selectedReports])
+
   return (
     <div className='h-screen flex flex-col'>
       <nav className='border-b bg-white shadow-sm'>
@@ -727,7 +832,11 @@ export default function FlowPage() {
             <div className='flex items-center'>
               <div className='flex-shrink-0 flex items-center'>
                 <Link href='/' className='font-bold text-xl text-primary'>
-                  Open Deep Research
+                  <img
+                    src='/apple-icon.png'
+                    alt='Open Deep Research'
+                    className='h-8 w-8 rounded-full'
+                  />
                 </Link>
               </div>
               <div className='hidden sm:ml-6 sm:flex sm:space-x-4'>
@@ -745,7 +854,7 @@ export default function FlowPage() {
                 </Button>
               </div>
             </div>
-            
+
             {/* Project controls */}
             <div className='flex items-center gap-2'>
               <ProjectSelector
@@ -762,18 +871,29 @@ export default function FlowPage() {
                 storageInfo={storageInfo}
                 refreshStorageInfo={refreshStorageInfo}
               />
-              
+
               {/* Mobile menu */}
               <div className='sm:hidden flex items-center'>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    <Button variant='ghost' size='icon' className='h-8 w-8'>
+                      <svg
+                        xmlns='http://www.w3.org/2000/svg'
+                        fill='none'
+                        viewBox='0 0 24 24'
+                        strokeWidth={1.5}
+                        stroke='currentColor'
+                        className='w-5 h-5'
+                      >
+                        <path
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          d='M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5'
+                        />
                       </svg>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align='end'>
                     <DropdownMenuItem asChild>
                       <Link href='/'>Home</Link>
                     </DropdownMenuItem>
@@ -857,7 +977,7 @@ export default function FlowPage() {
         {nodes.some((node) => node.data.error) && (
           <div className='absolute top-0 left-0 right-0 z-10 p-3 bg-red-50 border-b border-red-200'>
             <div className='max-w-4xl mx-auto flex items-center gap-2 text-red-700'>
-              <AlertTriangle className="h-4 w-4" />
+              <AlertTriangle className='h-4 w-4' />
               <p className='text-sm'>
                 {nodes.find((node) => node.data.error)?.data.error ||
                   'An error occurred during the operation. Please try again.'}
@@ -872,21 +992,22 @@ export default function FlowPage() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
           minZoom={0.1}
           maxZoom={1.5}
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-          className="transition-all duration-200"
+          className='transition-all duration-200'
         >
-          <MiniMap 
-            nodeStrokeWidth={3} 
-            className="!bottom-4 !right-4 !left-auto"
+          <MiniMap
+            nodeStrokeWidth={3}
+            className='!bottom-4 !right-4 !left-auto'
             pannable
             zoomable
           />
           <Background />
-          <Controls 
-            className="!top-4 !right-4 !left-auto !bottom-auto"
+          <Controls
+            className='!top-4 !right-4 !left-auto !bottom-auto'
             showInteractive={false}
           />
         </ReactFlow>

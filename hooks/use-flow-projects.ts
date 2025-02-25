@@ -15,6 +15,7 @@ export interface FlowProject {
   nodes: Node[]
   edges: Edge[]
   query: string
+  selectedReports?: string[]
 }
 
 interface StorageInfo {
@@ -35,7 +36,7 @@ interface UseFlowProjectsReturn {
     data: Partial<Omit<FlowProject, 'id' | 'createdAt'>>
   ) => void
   deleteProject: (id: string) => void
-  saveCurrentState: (nodes: Node[], edges: Edge[], query: string) => void
+  saveCurrentState: (nodes: Node[], edges: Edge[], query: string, selectedReports?: string[]) => void
   exportProjects: () => string
   importProjects: (jsonData: string) => boolean
   storageInfo: StorageInfo
@@ -125,6 +126,7 @@ export function useFlowProjects(): UseFlowProjectsReturn {
       nodes: [],
       edges: [],
       query: '',
+      selectedReports: [],
     }
 
     setProjects((prev) => [...prev, newProject])
@@ -166,13 +168,13 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     refreshStorageInfo()
   }
 
-  const saveCurrentState = (nodes: Node[], edges: Edge[], query: string) => {
+  const saveCurrentState = (nodes: Node[], edges: Edge[], query: string, selectedReports: string[] = []) => {
     if (currentProject) {
-      updateCurrentProject({ nodes, edges, query })
+      updateCurrentProject({ nodes, edges, query, selectedReports })
     } else if (nodes.length > 0 || edges.length > 0) {
       // Create a default project if we have data but no current project
       const newProject = createProject('Untitled Research')
-      updateCurrentProject({ nodes, edges, query })
+      updateCurrentProject({ nodes, edges, query, selectedReports })
     }
   }
 
