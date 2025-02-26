@@ -3,14 +3,14 @@ import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText } from 'lucide-react'
+import { FileText, AlertTriangle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import type { SearchResult } from '@/types'
 import { CONFIG } from '@/lib/config'
 
 type SelectionNodeData = {
   results: SearchResult[]
-  onGenerateReport: (selectedResults: SearchResult[], prompt: string) => void
+  onGenerateReport?: (selectedResults: SearchResult[], prompt: string) => void
 }
 
 const MAX_SELECTIONS = CONFIG.search.maxSelectableResults
@@ -22,14 +22,15 @@ export const SelectionNode = memo(function SelectionNode({
 }) {
   const [selectedResults, setSelectedResults] = useState<SearchResult[]>([])
   const [prompt, setPrompt] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   // Reset selection when results change
   useEffect(() => {
     setSelectedResults([])
+    setError(null)
   }, [data.results])
 
   const handleSelect = (result: SearchResult) => {
-    console.log('Selecting result:', result)
     setSelectedResults((prev) => {
       if (prev.find((r) => r.id === result.id)) {
         return prev.filter((r) => r.id !== result.id)
@@ -40,13 +41,28 @@ export const SelectionNode = memo(function SelectionNode({
   }
 
   const handleGenerateReport = () => {
-    console.log('Generating report with selected results:', selectedResults)
     if (selectedResults.length === 0) {
-      console.warn('No results selected')
+      setError('Please select at least one result')
       return
     }
-    data.onGenerateReport(selectedResults, prompt)
+    
+    // Clear any previous errors
+    setError(null)
+    
+    // Check if onGenerateReport is defined
+    if (typeof data.onGenerateReport !== 'function') {
+      setError('Report generation is not available')
+      return
+    }
+    
+    try {
+      data.onGenerateReport(selectedResults, prompt)
+    } catch (err) {
+      setError(`Error generating report: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
   }
+
+  const isSelectionValid = selectedResults.length > 0 && !error
 
   return (
     <div className='w-auto max-w-[600px] mx-auto'>
@@ -61,7 +77,7 @@ export const SelectionNode = memo(function SelectionNode({
               </h3>
               <Button
                 size='default'
-                disabled={selectedResults.length === 0}
+                disabled={!isSelectionValid}
                 onClick={handleGenerateReport}
                 className='gap-2'
               >
@@ -69,10 +85,19 @@ export const SelectionNode = memo(function SelectionNode({
                 Generate Report ({selectedResults.length})
               </Button>
             </div>
+            
+            {error && (
+              <div className='bg-red-50 border border-red-200 p-3 rounded-md flex items-center gap-2 text-red-700'>
+                <AlertTriangle className='h-4 w-4' />
+                <p className='text-sm'>{error}</p>
+              </div>
+            )}
+            
             <p className='text-gray-600'>
               Select up to {MAX_SELECTIONS} results to analyze (
               {selectedResults.length} selected)
             </p>
+            
             {selectedResults.length > 0 && (
               <Input
                 value={prompt}
@@ -80,6 +105,7 @@ export const SelectionNode = memo(function SelectionNode({
                 placeholder='What would you like to know about these sources?'
               />
             )}
+            
             <div className='space-y-4 max-h-[400px] overflow-y-auto pr-4 nowheel nodrag'>
               {data.results.map((result) => (
                 <div

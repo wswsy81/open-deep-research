@@ -1,7 +1,7 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Search, Loader2, Upload } from 'lucide-react'
+import { Search, Loader2, Upload, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SUPPORTED_FILE_TYPES } from '@/lib/file-upload'
@@ -17,6 +17,27 @@ export const SearchNode = memo(function SearchNode({
 }: {
   data: SearchNodeData
 }) {
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null)
+    const file = e.target.files?.[0]
+    
+    if (!file) return
+    
+    if (!data.onFileUpload) {
+      setUploadError('File upload is not available')
+      return
+    }
+    
+    try {
+      data.onFileUpload(file)
+      e.target.value = ''
+    } catch (err) {
+      setUploadError(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }
+
   return (
     <div className='w-[400px]'>
       <Card>
@@ -44,13 +65,7 @@ export const SearchNode = memo(function SearchNode({
               <div className='relative flex-shrink-0'>
                 <Input
                   type='file'
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file && data.onFileUpload) {
-                      data.onFileUpload(file)
-                      e.target.value = ''
-                    }
-                  }}
+                  onChange={handleFileUpload}
                   className='absolute inset-0 opacity-0 cursor-pointer'
                   accept={SUPPORTED_FILE_TYPES}
                 />
@@ -59,6 +74,7 @@ export const SearchNode = memo(function SearchNode({
                   variant='outline'
                   size='sm'
                   className='pointer-events-none'
+                  disabled={data.loading}
                 >
                   <Upload className='h-4 w-4 mr-2' />
                   Upload
@@ -66,6 +82,13 @@ export const SearchNode = memo(function SearchNode({
               </div>
             )}
           </div>
+          
+          {uploadError && (
+            <div className='mt-2 text-sm text-red-600 flex items-center gap-1'>
+              <AlertCircle className='h-3 w-3' />
+              <span>{uploadError}</span>
+            </div>
+          )}
         </CardContent>
 
         <Handle
