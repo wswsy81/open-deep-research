@@ -357,12 +357,20 @@ export function useFlowProjects(): UseFlowProjectsReturn {
       if (remainingProjects.length > 0) {
         setCurrentProject(remainingProjects[0])
       } else {
-        setCurrentProject(null)
-        localStorage.removeItem(CURRENT_PROJECT_KEY)
+        // Reinitialize the project
+        const defaultProject = createProject('My Research Project')
+        setProjects([defaultProject])
+        setCurrentProject(defaultProject)
+        localStorage.setItem(
+          LOCAL_STORAGE_KEY,
+          JSON.stringify([defaultProject])
+        )
+        localStorage.setItem(CURRENT_PROJECT_KEY, defaultProject.id)
       }
     }
 
     refreshStorageInfo()
+    window.location.reload() // Force reload the page after deletion
   }
 
   const exportProjects = (): string => {
