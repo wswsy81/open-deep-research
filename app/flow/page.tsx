@@ -102,6 +102,7 @@ function useResearchFlow(
     query: string,
     selectedReports: string[]
   ) => void,
+  setQuery: React.Dispatch<React.SetStateAction<string>>,
   simpleSave?: (
     nodes: Node[],
     edges: Edge[],
@@ -357,7 +358,16 @@ function useResearchFlow(
                   ...node.data,
                   searchTerms,
                   loading: false,
-                  onApprove: (term?: string) => term,
+                  onApprove: (term?: string) => {
+                    if (term) {
+                      setQuery(term)
+                      toast({
+                        title: 'Search query updated',
+                        description: `Updated search query to: "${term}"`,
+                      })
+                    }
+                    return term
+                  },
                 },
               }
             }
@@ -414,6 +424,7 @@ function useResearchFlow(
       selectedModel,
       simpleSave,
       saveCurrentState,
+      setQuery,
     ]
   )
 
@@ -565,6 +576,7 @@ function useResearchFlow(
       handleApiError,
       handleFileUpload,
       handleGenerateReport,
+      setQuery,
     ]
   )
 
@@ -839,6 +851,7 @@ export default function FlowPage() {
     query,
     selectedReports,
     saveCurrentState,
+    setQuery,
     simpleSave
   )
 
@@ -989,7 +1002,16 @@ export default function FlowPage() {
               data: {
                 ...node.data,
                 id: node.id,
-                onApprove: (term?: string) => term,
+                onApprove: (term?: string) => {
+                  if (term) {
+                    setQuery(term)
+                    toast({
+                      title: 'Search query updated',
+                      description: `Updated search query to: "${term}"`,
+                    })
+                  }
+                  return term
+                },
               },
             }
           }
