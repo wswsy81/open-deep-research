@@ -35,9 +35,9 @@ import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
 import { handleLocalFile } from '@/lib/file-upload'
 import { useToast } from '@/hooks/use-toast'
 import { useFlowProjects } from '@/hooks/use-flow-projects'
-import { ProjectSelector } from '@/components/project-selector'
+import { ProjectSelector } from '@/components/flow/project-selector'
 import Link from 'next/link'
-import { ProjectActions } from '@/components/project-actions'
+import { ProjectActions } from '@/components/flow/project-actions'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -257,6 +257,7 @@ function useResearchFlow(
                 content: content || result.snippet,
               }
             } catch (error) {
+              console.log('Error fetching content:', error)
               return {
                 url: result.url,
                 title: result.name,

@@ -221,7 +221,7 @@ export function ProjectActions({
           <DialogHeader>
             <DialogTitle>localStorage Usage</DialogTitle>
             <DialogDescription>
-              Your research projects are stored in your browser's localStorage
+              Your research projects are stored in your browser&apos;s localStorage
             </DialogDescription>
           </DialogHeader>
 
