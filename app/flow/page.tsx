@@ -927,6 +927,14 @@ export default function FlowPage() {
       // Map the nodes with the proper callbacks
       const nodesWithCallbacks = (currentProject.nodes as ResearchNode[]).map(
         (node) => {
+          // Clear any error states when loading from localStorage
+          const nodeData = {
+            ...node.data,
+            id: node.id,
+            error: undefined, // Clear any error state
+            loading: false,   // Reset loading state
+          }
+
           if (node.type === 'reportNode') {
             // Set isSelected based on the selectedReports we just set
             const isNodeSelected = projectSelections.includes(node.id)
@@ -934,8 +942,7 @@ export default function FlowPage() {
             return {
               ...node,
               data: {
-                ...node.data,
-                id: node.id,
+                ...nodeData,
                 isSelected: isNodeSelected,
                 onSelect: (id: string) => handleReportSelect(id),
               },
@@ -945,8 +952,7 @@ export default function FlowPage() {
             return {
               ...node,
               data: {
-                ...node.data,
-                id: node.id,
+                ...nodeData,
                 onGenerateReport: (
                   selectedResults: SearchResult[],
                   prompt: string
@@ -987,8 +993,7 @@ export default function FlowPage() {
             return {
               ...node,
               data: {
-                ...node.data,
-                id: node.id,
+                ...nodeData,
                 onFileUpload: node.parentId
                   ? (file: File) =>
                       handleFileUpload(file, node.id, node.parentId || '')
@@ -1000,8 +1005,7 @@ export default function FlowPage() {
             return {
               ...node,
               data: {
-                ...node.data,
-                id: node.id,
+                ...nodeData,
                 onApprove: (term?: string) => {
                   if (term) {
                     setQuery(term)
@@ -1017,10 +1021,7 @@ export default function FlowPage() {
           }
           return {
             ...node,
-            data: {
-              ...node.data,
-              id: node.id,
-            },
+            data: nodeData,
           }
         }
       )
