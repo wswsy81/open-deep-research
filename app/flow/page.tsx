@@ -96,8 +96,18 @@ function useResearchFlow(
   edges: Edge[],
   query: string,
   selectedReports: string[],
-  saveCurrentState: (nodes: Node[], edges: Edge[], query: string, selectedReports: string[]) => void,
-  simpleSave?: (nodes: Node[], edges: Edge[], query: string, selectedReports: string[]) => void
+  saveCurrentState: (
+    nodes: Node[],
+    edges: Edge[],
+    query: string,
+    selectedReports: string[]
+  ) => void,
+  simpleSave?: (
+    nodes: Node[],
+    edges: Edge[],
+    query: string,
+    selectedReports: string[]
+  ) => void
 ) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -326,8 +336,8 @@ function useResearchFlow(
         const { searchTerms } = await searchTermsResponse.json()
 
         // Update nodes with results
-        let updatedNodes: Node[] = [];
-        
+        let updatedNodes: Node[] = []
+
         setNodes((nds) => {
           const newNodes = nds.map((node) => {
             if (node.id === reportNode.id) {
@@ -352,24 +362,24 @@ function useResearchFlow(
               }
             }
             return node
-          });
-          
-          updatedNodes = newNodes;
-          return newNodes;
+          })
+
+          updatedNodes = newNodes
+          return newNodes
         })
-        
+
         // FORCE IMMEDIATE SAVE after nodes are updated
         // This is critical - we save directly to localStorage to ensure report data isn't lost
         setTimeout(() => {
           if (simpleSave) {
-            simpleSave(updatedNodes, edges, query, selectedReports);
-            console.log('🔥 FORCE SAVED REPORT DATA TO LOCALSTORAGE!');
+            simpleSave(updatedNodes, edges, query, selectedReports)
+            console.log('🔥 FORCE SAVED REPORT DATA TO LOCALSTORAGE!')
           } else {
-            console.warn('simpleSave function not available');
+            console.warn('simpleSave function not available')
             // Fallback to regular save
-            saveCurrentState(updatedNodes, edges, query, selectedReports);
+            saveCurrentState(updatedNodes, edges, query, selectedReports)
           }
-        }, 100);
+        }, 100)
 
         return { success: true, report, searchTerms }
       } catch (error) {
@@ -393,7 +403,18 @@ function useResearchFlow(
         return { success: false, error: errorMsg }
       }
     },
-    [createNode, setNodes, setEdges, edges, handleApiError, query, selectedReports, selectedModel, simpleSave, saveCurrentState]
+    [
+      createNode,
+      setNodes,
+      setEdges,
+      edges,
+      handleApiError,
+      query,
+      selectedReports,
+      selectedModel,
+      simpleSave,
+      saveCurrentState,
+    ]
   )
 
   // Start a new research flow
@@ -810,7 +831,17 @@ export default function FlowPage() {
     startResearch,
     handleGenerateReport,
     handleFileUpload,
-  } = useResearchFlow(createNode, setNodes, setEdges, selectedModel, edges, query, selectedReports, saveCurrentState, simpleSave)
+  } = useResearchFlow(
+    createNode,
+    setNodes,
+    setEdges,
+    selectedModel,
+    edges,
+    query,
+    selectedReports,
+    saveCurrentState,
+    simpleSave
+  )
 
   // Use the consolidation hook
   const { isConsolidating, consolidateReports } = useConsolidation(

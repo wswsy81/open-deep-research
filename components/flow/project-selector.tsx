@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useToast } from '@/hooks/use-toast'
 import type { FlowProject } from '@/hooks/use-flow-projects'
+import { useRouter } from 'next/navigation'
 
 interface ProjectSelectorProps {
   projects: FlowProject[]
@@ -52,6 +53,7 @@ export function ProjectSelector({
   const [editingProject, setEditingProject] = useState<FlowProject | null>(null)
   const [editName, setEditName] = useState('')
   const { toast } = useToast()
+  const router = useRouter()
 
   const handleCreateProject = () => {
     if (!newProjectName.trim()) {
@@ -107,6 +109,21 @@ export function ProjectSelector({
       hour: 'numeric',
       minute: 'numeric',
     }).format(date)
+  }
+
+  const handleSelectProject = (project: FlowProject) => {
+    if (currentProject?.id !== project.id) {
+      onSelectProject(project)
+
+      toast({
+        title: 'Switching projects',
+        description: `Loading "${project.name}"...`,
+      })
+
+      setTimeout(() => {
+        window.location.reload()
+      }, 300)
+    }
   }
 
   return (
@@ -185,7 +202,7 @@ export function ProjectSelector({
                       >
                         <div
                           className='flex-1 overflow-hidden text-ellipsis'
-                          onClick={() => onSelectProject(project)}
+                          onClick={() => handleSelectProject(project)}
                         >
                           <div className='font-medium'>{project.name}</div>
                           <div className='text-xs text-gray-500'>
