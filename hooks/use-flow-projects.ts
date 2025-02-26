@@ -89,6 +89,16 @@ export function useFlowProjects(): UseFlowProjectsReturn {
           setCurrentProject(mostRecent)
           localStorage.setItem(CURRENT_PROJECT_KEY, mostRecent.id)
         }
+      } else {
+        // Create a default project if no projects exist
+        const defaultProject = createProject('My Research Project')
+        setProjects([defaultProject])
+        setCurrentProject(defaultProject)
+        localStorage.setItem(
+          LOCAL_STORAGE_KEY,
+          JSON.stringify([defaultProject])
+        )
+        localStorage.setItem(CURRENT_PROJECT_KEY, defaultProject.id)
       }
 
       refreshStorageInfo()
@@ -201,7 +211,7 @@ export function useFlowProjects(): UseFlowProjectsReturn {
       updateCurrentProject(updatedData)
     } else if (nodes.length > 0 || edges.length > 0) {
       // Create a default project if we have data but no current project
-      const newProject = createProject('Untitled Research')
+      const newProject = createProject('My Research Project')
       updateCurrentProject({ nodes, edges, query, selectedReports })
     }
   }
