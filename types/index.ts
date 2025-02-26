@@ -92,3 +92,60 @@ export type State = {
   activeTab: string
   status: Status
 }
+
+// Flow Component Types
+export type BaseNodeData = {
+  id?: string
+  loading?: boolean
+  error?: string
+  parentId?: string
+  childIds?: string[]
+}
+
+export type SearchNodeData = BaseNodeData & {
+  query: string
+  onFileUpload?: (file: File) => void
+}
+
+export type SelectionNodeData = BaseNodeData & {
+  results: SearchResult[]
+  onGenerateReport?: (selectedResults: SearchResult[], prompt: string) => void
+}
+
+export type ReportNodeData = BaseNodeData & {
+  report?: Report
+  isSelected?: boolean
+  onSelect?: (id: string) => void
+  isConsolidated?: boolean
+  isConsolidating?: boolean
+}
+
+export type SearchTermsNodeData = BaseNodeData & {
+  searchTerms?: string[]
+  onApprove?: (term: string) => void
+}
+
+// Combined interface for all node types with index signature for compatibility with xyflow
+export interface FlowNodeData extends BaseNodeData {
+  query?: string
+  results?: SearchResult[]
+  report?: Report
+  searchTerms?: string[]
+  question?: string
+  onGenerateReport?: (selectedResults: SearchResult[], prompt: string) => void
+  onApprove?: (term?: string) => void
+  onConsolidate?: () => void
+  hasChildren?: boolean
+  isSelected?: boolean
+  onSelect?: (id: string) => void
+  isConsolidated?: boolean
+  isConsolidating?: boolean
+  onFileUpload?: (file: File) => void
+  [key: string]: any // This allows for dynamic properties required by xyflow
+}
+
+// Configuration for different node types
+export interface NodeConfig {
+  zIndex: number
+  style?: React.CSSProperties
+}

@@ -4,7 +4,7 @@ import { Loader2, ChevronDown, AlertTriangle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ReportActions } from '@/components/report-actions'
-import type { Report } from '@/types'
+import type { Report, ReportNodeData } from '@/types'
 import { useState, memo } from 'react'
 import {
   Collapsible,
@@ -14,22 +14,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type ReportNodeData = {
-  report?: Report
-  loading: boolean
-  error?: string
-  isSelected?: boolean
-  onSelect?: (id: string) => void
-  isConsolidated?: boolean
-  isConsolidating?: boolean
-}
-
 // Extract ReportContent as a memoized component to prevent unnecessary re-renders
-const ReportContent = memo(function ReportContent({ 
-  report, 
-  isExpanded, 
-  setIsExpanded 
-}: { 
+const ReportContent = memo(function ReportContent({
+  report,
+  isExpanded,
+  setIsExpanded,
+}: {
   report: Report
   isExpanded: boolean
   setIsExpanded: (value: boolean) => void
@@ -37,9 +27,7 @@ const ReportContent = memo(function ReportContent({
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <div className='space-y-2'>
-        <h2 className='text-xl font-bold text-gray-800'>
-          {report.title}
-        </h2>
+        <h2 className='text-xl font-bold text-gray-800'>{report.title}</h2>
         <div className='flex justify-start'>
           <ReportActions report={report} size='sm' />
         </div>
@@ -63,11 +51,7 @@ const ReportContent = memo(function ReportContent({
       </CollapsibleContent>
       <div className='flex justify-center mt-4 border-t pt-4'>
         <CollapsibleTrigger asChild>
-          <Button
-            variant='link'
-            size='sm'
-            className='gap-2 text-blue-600'
-          >
+          <Button variant='link' size='sm' className='gap-2 text-blue-600'>
             {isExpanded ? 'Show less' : 'View full report'}
             <ChevronDown
               className={`h-4 w-4 transition-transform ${
@@ -102,8 +86,10 @@ export const ReportNode = memo(function ReportNode({
   // Calculate derived styles
   const cardClassName = [
     isSelected ? 'ring-2 ring-blue-500' : '',
-    isConsolidated ? 'border border-yellow-500' : ''
-  ].filter(Boolean).join(' ')
+    isConsolidated ? 'border border-yellow-500' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className='w-[600px]'>
@@ -129,15 +115,17 @@ export const ReportNode = memo(function ReportNode({
                 />
               )}
               <div className='flex-1'>
-                <ReportContent 
-                  report={report} 
-                  isExpanded={isExpanded} 
-                  setIsExpanded={setIsExpanded} 
+                <ReportContent
+                  report={report}
+                  isExpanded={isExpanded}
+                  setIsExpanded={setIsExpanded}
                 />
               </div>
             </div>
           ) : (
-            <div className='text-gray-500 text-center p-4'>No report data available</div>
+            <div className='text-gray-500 text-center p-4'>
+              No report data available
+            </div>
           )}
         </CardContent>
       </Card>

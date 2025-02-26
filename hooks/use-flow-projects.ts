@@ -36,7 +36,12 @@ interface UseFlowProjectsReturn {
     data: Partial<Omit<FlowProject, 'id' | 'createdAt'>>
   ) => void
   deleteProject: (id: string) => void
-  saveCurrentState: (nodes: Node[], edges: Edge[], query: string, selectedReports?: string[]) => void
+  saveCurrentState: (
+    nodes: Node[],
+    edges: Edge[],
+    query: string,
+    selectedReports?: string[]
+  ) => void
   exportProjects: () => string
   importProjects: (jsonData: string) => boolean
   storageInfo: StorageInfo
@@ -168,7 +173,12 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     refreshStorageInfo()
   }
 
-  const saveCurrentState = (nodes: Node[], edges: Edge[], query: string, selectedReports: string[] = []) => {
+  const saveCurrentState = (
+    nodes: Node[],
+    edges: Edge[],
+    query: string,
+    selectedReports: string[] = []
+  ) => {
     if (currentProject) {
       updateCurrentProject({ nodes, edges, query, selectedReports })
     } else if (nodes.length > 0 || edges.length > 0) {

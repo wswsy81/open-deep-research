@@ -5,12 +5,7 @@ import { Search, Loader2, Upload, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SUPPORTED_FILE_TYPES } from '@/lib/file-upload'
-
-type SearchNodeData = {
-  query: string
-  loading: boolean
-  onFileUpload?: (file: File) => void
-}
+import { SearchNodeData } from '@/types'
 
 export const SearchNode = memo(function SearchNode({
   data,
@@ -22,19 +17,21 @@ export const SearchNode = memo(function SearchNode({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null)
     const file = e.target.files?.[0]
-    
+
     if (!file) return
-    
+
     if (!data.onFileUpload) {
       setUploadError('File upload is not available')
       return
     }
-    
+
     try {
       data.onFileUpload(file)
       e.target.value = ''
     } catch (err) {
-      setUploadError(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setUploadError(
+        `Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`
+      )
     }
   }
 
@@ -82,7 +79,7 @@ export const SearchNode = memo(function SearchNode({
               </div>
             )}
           </div>
-          
+
           {uploadError && (
             <div className='mt-2 text-sm text-red-600 flex items-center gap-1'>
               <AlertCircle className='h-3 w-3' />

@@ -3,13 +3,7 @@ import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Search, Loader2, AlertTriangle } from 'lucide-react'
-
-type SearchTermsNodeData = {
-  searchTerms?: string[]
-  loading: boolean
-  error?: string
-  onApprove?: (term: string) => void
-}
+import { SearchTermsNodeData } from '@/types'
 
 export const QuestionNode = memo(function SearchTermsNode({
   data,
@@ -24,7 +18,8 @@ export const QuestionNode = memo(function SearchTermsNode({
     data.onApprove(term)
   }
 
-  const hasTerms = Array.isArray(data.searchTerms) && data.searchTerms.length > 0
+  const hasTerms =
+    Array.isArray(data.searchTerms) && data.searchTerms.length > 0
 
   return (
     <div className='w-[400px]'>
@@ -48,23 +43,24 @@ export const QuestionNode = memo(function SearchTermsNode({
                 <h3 className='font-medium'>Follow-up Queries</h3>
               </div>
               <div className='space-y-2'>
-                {data.searchTerms && data.searchTerms.map((term, index) => (
-                  <div
-                    key={index}
-                    className='flex items-center justify-between gap-2 p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors'
-                  >
-                    <p className='text-sm text-gray-600 flex-1'>{term}</p>
-                    <Button
-                      size='sm'
-                      variant='ghost'
-                      onClick={() => handleApprove(term)}
-                      className='h-8 shrink-0'
-                      title="Search this term"
+                {data.searchTerms &&
+                  data.searchTerms.map((term, index) => (
+                    <div
+                      key={index}
+                      className='flex items-center justify-between gap-2 p-2 rounded bg-gray-50 hover:bg-gray-100 transition-colors'
                     >
-                      <Search className='h-4 w-4' />
-                    </Button>
-                  </div>
-                ))}
+                      <p className='text-sm text-gray-600 flex-1'>{term}</p>
+                      <Button
+                        size='sm'
+                        variant='ghost'
+                        onClick={() => handleApprove(term)}
+                        className='h-8 shrink-0'
+                        title='Search this term'
+                      >
+                        <Search className='h-4 w-4' />
+                      </Button>
+                    </div>
+                  ))}
               </div>
             </div>
           ) : (
