@@ -180,7 +180,25 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     selectedReports: string[] = []
   ) => {
     if (currentProject) {
-      updateCurrentProject({ nodes, edges, query, selectedReports })
+      // Only update the selectedReports if it's not an empty array (unless the current value is undefined)
+      const updatedData: Partial<Omit<FlowProject, 'id' | 'createdAt'>> = {
+        nodes,
+        edges,
+        query,
+      }
+
+      // Only update selectedReports if it's not an empty array or if the current project doesn't have any
+      if (selectedReports.length > 0) {
+        // We have selections, update them
+        updatedData.selectedReports = selectedReports
+      } else if (!currentProject.selectedReports) {
+        // Project doesn't have selectedReports defined yet, set to empty array
+        updatedData.selectedReports = []
+      } else {
+        // Empty array passed but project has selections - log but don't update
+      }
+
+      updateCurrentProject(updatedData)
     } else if (nodes.length > 0 || edges.length > 0) {
       // Create a default project if we have data but no current project
       const newProject = createProject('Untitled Research')

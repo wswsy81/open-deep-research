@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type {
   Node,
   Edge,
@@ -666,6 +666,9 @@ export default function FlowPage() {
   const [query, setQuery] = useState('')
   const [selectedReports, setSelectedReports] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
+  // Only initialize ONCE - track if we've done first initialization
+  const hasInitialized = useRef(false)
+
   const { toast } = useToast()
 
   const {
@@ -700,14 +703,35 @@ export default function FlowPage() {
     []
   )
 
-  // Report selection handler
-  const handleReportSelect = useCallback((reportId: string) => {
-    setSelectedReports((prev) =>
-      prev.includes(reportId)
-        ? prev.filter((id) => id !== reportId)
-        : [...prev, reportId]
-    )
-  }, [])
+  // ULTRA-SIMPLE Report selection handler - directly updates both state and nodes in one go
+  const handleReportSelect = useCallback(
+    (reportId: string) => {
+      setSelectedReports((currentSelectedReports) => {
+        const isCurrentlySelected = currentSelectedReports.includes(reportId)
+        const newSelectedReports = isCurrentlySelected
+          ? currentSelectedReports.filter((id) => id !== reportId)
+          : [...currentSelectedReports, reportId]
+
+        // Update the nodes to reflect the selection state
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === reportId
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    isSelected: !isCurrentlySelected,
+                  },
+                }
+              : node
+          )
+        )
+
+        return newSelectedReports
+      })
+    },
+    [setNodes]
+  )
 
   // Node creation utility - centralized logic for creating nodes
   const createNode = useCallback(
@@ -724,14 +748,14 @@ export default function FlowPage() {
         zIndex: 1,
       }
 
-      // Base node data
+      // Base node data with selection state for report nodes
       const nodeData = {
         ...data,
         id,
         childIds: data.childIds || [],
         ...(type === 'reportNode' && {
           isSelected: selectedReports.includes(id),
-          onSelect: (nodeId: string) => handleReportSelect(nodeId),
+          onSelect: handleReportSelect,
         }),
       }
 
@@ -772,139 +796,166 @@ export default function FlowPage() {
     selectedModel
   )
 
-  // Auto-save state to current project whenever it changes
+  // Update nodes when selectedReports changes
   useEffect(() => {
-    const saveTimer = setTimeout(() => {
-      saveCurrentState(nodes, edges, query, selectedReports)
-    }, 1000)
-
-    return () => clearTimeout(saveTimer)
-  }, [nodes, edges, query, selectedReports, saveCurrentState])
-
-  // Initialize from current project
-  useEffect(() => {
-    if (currentProject) {
-      // Set query and selected reports
-      setQuery(currentProject.query)
-      setSelectedReports(currentProject.selectedReports || [])
-
-      // Set nodes with the selection state and callbacks
-      const nodesWithSelectionAndCallbacks = (
-        currentProject.nodes as ResearchNode[]
-      ).map((node) => {
+    setNodes((nds) =>
+      nds.map((node) => {
         if (node.type === 'reportNode') {
           return {
             ...node,
             data: {
               ...node.data,
-              id: node.id,
-              isSelected: (currentProject.selectedReports || []).includes(
-                node.id
-              ),
-              onSelect: (id: string) => handleReportSelect(id),
+              isSelected: selectedReports.includes(node.id),
             },
           }
         }
-        if (node.type === 'selectionNode') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              id: node.id,
-              onGenerateReport: (
-                selectedResults: SearchResult[],
-                prompt: string
-              ) => {
-                const parentGroupId = node.parentId
-                // Find the search node in the same group
-                const searchNode = currentProject.nodes.find(
-                  (n) => n.type === 'searchNode' && n.parentId === parentGroupId
-                )
-                const searchNodeId = searchNode?.id || ''
+        return node
+      })
+    )
+  }, [selectedReports, setNodes])
 
-                if (!searchNodeId || !parentGroupId) {
-                  console.error(
-                    'Unable to find associated search node or group for selection node',
-                    node.id
-                  )
-                  toast({
-                    title: 'Error',
-                    description:
-                      "Couldn't find the search node associated with these results. Try refreshing the page.",
-                    variant: 'destructive',
-                  })
-                  return
-                }
+  // IMPROVED auto-save with debounce - prevent multiple saves of the same data
+  const previousSaveRef = useRef<string>('')
 
-                return handleGenerateReport(
-                  selectedResults,
-                  searchNodeId,
-                  parentGroupId,
-                  prompt
-                )
-              },
-            },
-          }
-        }
-        if (node.type === 'searchNode') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              id: node.id,
-              onFileUpload: node.parentId
-                ? (file: File) =>
-                    handleFileUpload(file, node.id, node.parentId || '')
-                : undefined,
-            },
-          }
-        }
-        if (node.type === 'questionNode') {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              id: node.id,
-              onApprove: (term?: string) => term,
-            },
-          }
-        }
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            id: node.id,
-          },
-        }
+  useEffect(() => {
+    // Only save if we've completed initialization
+    if (!hasInitialized.current) return
+
+    const saveTimer = setTimeout(() => {
+      // Create a signature of what we're about to save
+      const saveSignature = JSON.stringify({
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+        query,
+        selectedReports,
       })
 
-      setNodes(nodesWithSelectionAndCallbacks as ResearchNode[])
-      setEdges(currentProject.edges)
-    }
-  }, [
-    currentProject,
-    handleReportSelect,
-    handleGenerateReport,
-    handleFileUpload,
-    toast,
-  ])
+      // Only save if the signature has changed
+      if (saveSignature !== previousSaveRef.current) {
+        previousSaveRef.current = saveSignature
+        saveCurrentState(nodes, edges, query, selectedReports)
+      } else {
+      }
+    }, 1000)
 
-  // Update node isSelected state when selectedReports changes
+    return () => clearTimeout(saveTimer)
+  }, [nodes, edges, query, selectedReports, saveCurrentState])
+
+  // REDESIGNED project initialization - only runs ONCE
   useEffect(() => {
-    setNodes((nds) =>
-      nds.map((node) =>
-        node.type === 'reportNode'
-          ? {
+    // Don't run if we've already initialized
+    if (hasInitialized.current) return
+
+    if (currentProject) {
+      // Set basic state
+      setQuery(currentProject.query)
+
+      // Get the selectedReports from the project (only if we don't have any)
+      const projectSelections = currentProject.selectedReports || []
+      if (selectedReports.length === 0 && projectSelections.length > 0) {
+        setSelectedReports(projectSelections)
+      }
+
+      // Map the nodes with the proper callbacks
+      const nodesWithCallbacks = (currentProject.nodes as ResearchNode[]).map(
+        (node) => {
+          if (node.type === 'reportNode') {
+            // Set isSelected based on the selectedReports we just set
+            const isNodeSelected = projectSelections.includes(node.id)
+
+            return {
               ...node,
               data: {
                 ...node.data,
-                isSelected: selectedReports.includes(node.id),
+                id: node.id,
+                isSelected: isNodeSelected,
+                onSelect: (id: string) => handleReportSelect(id),
               },
             }
-          : node
+          }
+          if (node.type === 'selectionNode') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                id: node.id,
+                onGenerateReport: (
+                  selectedResults: SearchResult[],
+                  prompt: string
+                ) => {
+                  const parentGroupId = node.parentId
+                  // Find the search node in the same group
+                  const searchNode = currentProject.nodes.find(
+                    (n) =>
+                      n.type === 'searchNode' && n.parentId === parentGroupId
+                  )
+                  const searchNodeId = searchNode?.id || ''
+
+                  if (!searchNodeId || !parentGroupId) {
+                    console.error(
+                      'Unable to find associated search node or group for selection node',
+                      node.id
+                    )
+                    toast({
+                      title: 'Error',
+                      description:
+                        "Couldn't find the search node associated with these results. Try refreshing the page.",
+                      variant: 'destructive',
+                    })
+                    return
+                  }
+
+                  return handleGenerateReport(
+                    selectedResults,
+                    searchNodeId,
+                    parentGroupId,
+                    prompt
+                  )
+                },
+              },
+            }
+          }
+          if (node.type === 'searchNode') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                id: node.id,
+                onFileUpload: node.parentId
+                  ? (file: File) =>
+                      handleFileUpload(file, node.id, node.parentId || '')
+                  : undefined,
+              },
+            }
+          }
+          if (node.type === 'questionNode') {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                id: node.id,
+                onApprove: (term?: string) => term,
+              },
+            }
+          }
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              id: node.id,
+            },
+          }
+        }
       )
-    )
-  }, [selectedReports])
+
+      setNodes(nodesWithCallbacks as ResearchNode[])
+      setEdges(currentProject.edges)
+
+      // Mark that we've initialized - NEVER run this effect again
+      hasInitialized.current = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject, handleReportSelect]) // Only these deps, but use hasInitialized to prevent re-runs
 
   // Start research handler
   const handleStartResearch = useCallback(
@@ -915,8 +966,13 @@ export default function FlowPage() {
     [query, nodes, startResearch]
   )
 
-  // Consolidation handler
+  // Consolidation handler - add extra logging
   const handleConsolidateSelected = useCallback(async () => {
+    if (selectedReports.length < 2) {
+      console.error('Select at least 2 reports to consolidate')
+      return
+    }
+
     const result = await consolidateReports(selectedReports)
     if (result.success) {
       setSelectedReports([])
