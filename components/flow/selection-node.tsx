@@ -3,7 +3,7 @@ import { Handle, Position } from '@xyflow/react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, AlertTriangle } from 'lucide-react'
+import { FileText, AlertTriangle, Loader2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import type { SearchResult, SelectionNodeData } from '@/types'
 import { CONFIG } from '@/lib/config'
@@ -18,6 +18,7 @@ export const SelectionNode = memo(function SelectionNode({
   const [selectedResults, setSelectedResults] = useState<SearchResult[]>([])
   const [prompt, setPrompt] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // Reset selection when results change
   useEffect(() => {
@@ -50,9 +51,29 @@ export const SelectionNode = memo(function SelectionNode({
       return
     }
 
+    setIsGenerating(true)
+
     try {
-      data.onGenerateReport(selectedResults, prompt)
+      // Call onGenerateReport and capture the result
+      const result = data.onGenerateReport(selectedResults, prompt)
+
+      // Check if the result is a Promise using Promise.resolve
+      Promise.resolve(result)
+        .then(() => {
+          // Report generation completed successfully
+        })
+        .catch((err) => {
+          setError(
+            `Error generating report: ${
+              err instanceof Error ? err.message : 'Unknown error'
+            }`
+          )
+        })
+        .finally(() => {
+          setIsGenerating(false)
+        })
     } catch (err) {
+      setIsGenerating(false)
       setError(
         `Error generating report: ${
           err instanceof Error ? err.message : 'Unknown error'
@@ -76,12 +97,18 @@ export const SelectionNode = memo(function SelectionNode({
               </h3>
               <Button
                 size='default'
-                disabled={!isSelectionValid}
+                disabled={!isSelectionValid || isGenerating}
                 onClick={handleGenerateReport}
                 className='gap-2'
               >
-                <FileText className='h-4 w-4' />
-                Generate Report ({selectedResults.length})
+                {isGenerating ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : (
+                  <FileText className='h-4 w-4' />
+                )}
+                {isGenerating
+                  ? 'Generating...'
+                  : `Generate Report (${selectedResults.length})`}
               </Button>
             </div>
 
@@ -116,8 +143,9 @@ export const SelectionNode = memo(function SelectionNode({
                       checked={selectedResults.some((r) => r.id === result.id)}
                       onCheckedChange={() => handleSelect(result)}
                       disabled={
-                        !selectedResults.some((r) => r.id === result.id) &&
-                        selectedResults.length >= MAX_SELECTIONS
+                        (!selectedResults.some((r) => r.id === result.id) &&
+                          selectedResults.length >= MAX_SELECTIONS) ||
+                        isGenerating
                       }
                     />
                   </div>

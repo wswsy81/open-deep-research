@@ -109,7 +109,19 @@ export type SearchNodeData = BaseNodeData & {
 
 export type SelectionNodeData = BaseNodeData & {
   results: SearchResult[]
-  onGenerateReport?: (selectedResults: SearchResult[], prompt: string) => void
+  onGenerateReport?: (
+    selectedResults: SearchResult[],
+    prompt: string
+  ) => Promise<
+    | { success: boolean; report: any; searchTerms: any; error?: undefined }
+    | {
+        success: boolean
+        error: string
+        report?: undefined
+        searchTerms?: undefined
+      }
+    | undefined
+  >
 }
 
 export type ReportNodeData = BaseNodeData & {
@@ -132,7 +144,19 @@ export interface FlowNodeData extends BaseNodeData {
   report?: Report
   searchTerms?: string[]
   question?: string
-  onGenerateReport?: (selectedResults: SearchResult[], prompt: string) => void
+  onGenerateReport?: (
+    selectedResults: SearchResult[],
+    prompt: string
+  ) => Promise<
+    | { success: boolean; report: any; searchTerms: any; error?: undefined }
+    | {
+        success: boolean
+        error: string
+        report?: undefined
+        searchTerms?: undefined
+      }
+    | undefined
+  >
   onApprove?: (term?: string) => void
   onConsolidate?: () => void
   hasChildren?: boolean

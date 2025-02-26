@@ -154,7 +154,12 @@ function useResearchFlow(
             {
               results: [result],
               onGenerateReport: (selected, prompt) => {
-                handleGenerateReport(selected, searchNodeId, groupId, prompt)
+                return handleGenerateReport(
+                  selected,
+                  searchNodeId,
+                  groupId,
+                  prompt
+                )
               },
               childIds: [],
             },
@@ -455,7 +460,7 @@ function useResearchFlow(
           {
             results: searchResults,
             onGenerateReport: (selected, prompt) => {
-              handleGenerateReport(
+              return handleGenerateReport(
                 selected,
                 searchNode.id,
                 groupNode.id,
@@ -514,6 +519,7 @@ function useResearchFlow(
       setNodes,
       handleApiError,
       handleFileUpload,
+      handleGenerateReport,
     ]
   )
 
@@ -829,7 +835,7 @@ export default function FlowPage() {
                   return
                 }
 
-                handleGenerateReport(
+                return handleGenerateReport(
                   selectedResults,
                   searchNodeId,
                   parentGroupId,
@@ -871,7 +877,7 @@ export default function FlowPage() {
         }
       })
 
-      setNodes(nodesWithSelectionAndCallbacks)
+      setNodes(nodesWithSelectionAndCallbacks as ResearchNode[])
       setEdges(currentProject.edges)
     }
   }, [
