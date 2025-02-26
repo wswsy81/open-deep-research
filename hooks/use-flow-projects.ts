@@ -46,12 +46,6 @@ interface UseFlowProjectsReturn {
   importProjects: (jsonData: string) => boolean
   storageInfo: StorageInfo
   refreshStorageInfo: () => void
-  getSavedState: () => {
-    nodes: Node[]
-    edges: Edge[]
-    query: string
-    selectedReports: string[]
-  }
   saveDirect: () => void
   simpleSave: (
     nodes: Node[],
@@ -418,46 +412,6 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     return success
   }
 
-  // Helper function to get the current saved state with post-processing
-  const getSavedState = () => {
-    // First try to get from current project in state
-    if (currentProject) {
-      return {
-        nodes: postprocessLoadedNodes(currentProject.nodes || []),
-        edges: currentProject.edges || [],
-        query: currentProject.query || '',
-        selectedReports: currentProject.selectedReports || [],
-      }
-    }
-
-    // If no current project in state, try direct localStorage lookup
-    try {
-      const savedCurrentProjectId = localStorage.getItem(CURRENT_PROJECT_KEY)
-      const savedProjects = localStorage.getItem(LOCAL_STORAGE_KEY)
-
-      if (savedCurrentProjectId && savedProjects) {
-        const parsedProjects = JSON.parse(savedProjects) as FlowProject[]
-        const current = parsedProjects.find(
-          (p) => p.id === savedCurrentProjectId
-        )
-
-        if (current) {
-          return {
-            nodes: postprocessLoadedNodes(current.nodes || []),
-            edges: current.edges || [],
-            query: current.query || '',
-            selectedReports: current.selectedReports || [],
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to get saved state from localStorage:', error)
-    }
-
-    // Default empty state if nothing found
-    return { nodes: [], edges: [], query: '', selectedReports: [] }
-  }
-
   // Get raw node and edge data and immediately save to localStorage
   const saveDirect = () => {
     if (!currentProject) return
@@ -534,7 +488,6 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     importProjects: importProjectsData,
     storageInfo,
     refreshStorageInfo,
-    getSavedState,
     saveDirect,
     simpleSave,
   }

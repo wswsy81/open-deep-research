@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/tooltip'
 import { useToast } from '@/hooks/use-toast'
 import type { FlowProject } from '@/hooks/use-flow-projects'
-import { useRouter } from 'next/navigation'
 
 interface ProjectSelectorProps {
   projects: FlowProject[]
@@ -53,7 +52,6 @@ export function ProjectSelector({
   const [editingProject, setEditingProject] = useState<FlowProject | null>(null)
   const [editName, setEditName] = useState('')
   const { toast } = useToast()
-  const router = useRouter()
 
   const handleCreateProject = () => {
     if (!newProjectName.trim()) {
