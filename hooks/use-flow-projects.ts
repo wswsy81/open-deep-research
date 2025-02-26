@@ -15,7 +15,7 @@ export interface FlowProject {
   nodes: Node[]
   edges: Edge[]
   query: string
-  selectedReports?: string[]
+  selectedReports: string[]
 }
 
 interface StorageInfo {
@@ -46,6 +46,9 @@ interface UseFlowProjectsReturn {
   importProjects: (jsonData: string) => boolean
   storageInfo: StorageInfo
   refreshStorageInfo: () => void
+  getSavedState: () => { nodes: Node[], edges: Edge[], query: string, selectedReports: string[] }
+  saveDirect: () => void
+  simpleSave: (nodes: Node[], edges: Edge[], query: string, selectedReports?: string[]) => void
 }
 
 const LOCAL_STORAGE_KEY = 'open-deep-research-flow-projects'
@@ -63,7 +66,163 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     }
   })
 
-  // Load projects from localStorage
+  // Helper function to preprocess nodes before saving to ensure loading states are reset
+  const preprocessNodesForSave = (nodes: Node[]): Node[] => {
+    return nodes.map(node => {
+      // Create a deep copy to avoid mutating the original
+      const nodeCopy = JSON.parse(JSON.stringify(node));
+      
+      // For report nodes, make sure we're not saving them in a loading state
+      if (nodeCopy.type === 'reportNode') {
+        // Log what we're about to save for debugging purposes
+        console.log('Saving reportNode:', nodeCopy.id, nodeCopy.data);
+        
+        // The report object is stored in data.report, check if it exists
+        if (nodeCopy.data?.report) {
+          // We have a report object, make sure loading is false
+          nodeCopy.data.loading = false;
+        } else if (nodeCopy.data?.loading === true) {
+          // Loading is true but no report exists
+          nodeCopy.data.loading = false;
+          
+          // Create a placeholder report
+          nodeCopy.data.report = {
+            title: 'Report Unavailable',
+            summary: 'The report content is not available. Please regenerate the report.',
+            sections: []
+          };
+        }
+      }
+      
+      if (nodeCopy.type === 'questionNode') {
+        // Log what we're about to save for debugging
+        console.log('Saving questionNode:', nodeCopy.id, nodeCopy.data);
+        
+        // Check for questions in different possible formats
+        const hasSearchTerms = nodeCopy.data?.searchTerms && Array.isArray(nodeCopy.data.searchTerms);
+        
+        if (nodeCopy.data?.loading === true) {
+          nodeCopy.data.loading = false;
+          
+          // Only set empty searchTerms if none exist
+          if (!hasSearchTerms) {
+            nodeCopy.data.searchTerms = [];
+          }
+        }
+      }
+      
+      return nodeCopy;
+    });
+  };
+
+  // Save current state with preprocessing for loading states and debug logging
+  const saveCurrentState = (
+    nodes: Node[],
+    edges: Edge[],
+    query: string,
+    selectedReports: string[] = []
+  ) => {
+    // Just save everything directly without any complicated processing
+    if (currentProject) {
+      // Get all report nodes
+      const reportNodes = nodes.filter(node => node.type === 'reportNode');
+      console.log('Simple save - Report nodes:', reportNodes);
+      
+      // Update the current project
+      const updatedData = {
+        nodes, 
+        edges,
+        query,
+        selectedReports
+      };
+      
+      // Update React state
+      updateCurrentProject(updatedData);
+      
+      // Also directly save to localStorage
+      const updatedProject = {
+        ...currentProject,
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      };
+      
+      const updatedProjects = projects.map(p => 
+        p.id === currentProject.id ? updatedProject : p
+      );
+      
+      // Save directly to localStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+      console.log('Directly saved to localStorage with simplified method');
+    } else if (nodes.length > 0 || edges.length > 0 || selectedReports.length > 0) {
+      // Create a default project if we have any data but no current project
+      const newProject = createProject('My Research Project');
+      const updatedData = { 
+        nodes, 
+        edges, 
+        query, 
+        selectedReports 
+      };
+      
+      updateCurrentProject(updatedData);
+      
+      // Also directly save to localStorage
+      const updatedProject = {
+        ...newProject,
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      };
+      
+      const updatedProjects = [...projects, updatedProject];
+      
+      // Save directly to localStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+      console.log('Created new project and saved directly to localStorage');
+    }
+  };
+  
+  // Helper function to postprocess nodes after loading to ensure proper state
+  const postprocessLoadedNodes = (nodes: Node[]): Node[] => {
+    return nodes.map(node => {
+      // Create a deep copy to avoid mutating the original
+      const nodeCopy = JSON.parse(JSON.stringify(node));
+      
+      // Log what we're loading for report nodes
+      if (nodeCopy.type === 'reportNode') {
+        console.log('Loading reportNode:', nodeCopy.id, nodeCopy.data);
+      }
+      
+      // Set appropriate loading states for report and question nodes
+      if (nodeCopy.type === 'reportNode') {
+        // In our application, the report data is stored in data.report object
+        if (nodeCopy.data?.report) {
+          // We have a report object
+          nodeCopy.data.loading = false;
+        } else {
+          // No report data exists
+          nodeCopy.data.loading = false;
+          nodeCopy.data.report = {
+            title: 'Report Unavailable',
+            summary: 'The report content is not available. Please regenerate the report.',
+            sections: []
+          };
+        }
+      }
+      
+      if (nodeCopy.type === 'questionNode') {
+        // For question nodes, we look for searchTerms, not questions
+        if (nodeCopy.data?.searchTerms && Array.isArray(nodeCopy.data.searchTerms)) {
+          nodeCopy.data.loading = false;
+        } else {
+          nodeCopy.data.loading = false;
+          nodeCopy.data.searchTerms = [];
+        }
+      }
+      
+      return nodeCopy;
+    });
+  };
+
+  // Load projects from localStorage with post-processing
   useEffect(() => {
     try {
       const savedProjects = localStorage.getItem(LOCAL_STORAGE_KEY)
@@ -71,18 +230,27 @@ export function useFlowProjects(): UseFlowProjectsReturn {
 
       if (savedProjects) {
         const parsedProjects = JSON.parse(savedProjects) as FlowProject[]
-        setProjects(parsedProjects)
+        
+        // Process all projects
+        const normalizedProjects = parsedProjects.map(project => ({
+          ...project,
+          selectedReports: project.selectedReports || [],
+          // Ensure nodes don't have invalid loading states
+          nodes: postprocessLoadedNodes(project.nodes || [])
+        }))
+        
+        setProjects(normalizedProjects)
 
         if (savedCurrentProjectId) {
-          const current = parsedProjects.find(
+          const current = normalizedProjects.find(
             (p) => p.id === savedCurrentProjectId
           )
           if (current) {
             setCurrentProject(current)
           }
-        } else if (parsedProjects.length > 0) {
+        } else if (normalizedProjects.length > 0) {
           // Default to the most recently updated project
-          const mostRecent = [...parsedProjects].sort(
+          const mostRecent = [...normalizedProjects].sort(
             (a, b) =>
               new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
           )[0]
@@ -183,39 +351,6 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     refreshStorageInfo()
   }
 
-  const saveCurrentState = (
-    nodes: Node[],
-    edges: Edge[],
-    query: string,
-    selectedReports: string[] = []
-  ) => {
-    if (currentProject) {
-      // Only update the selectedReports if it's not an empty array (unless the current value is undefined)
-      const updatedData: Partial<Omit<FlowProject, 'id' | 'createdAt'>> = {
-        nodes,
-        edges,
-        query,
-      }
-
-      // Only update selectedReports if it's not an empty array or if the current project doesn't have any
-      if (selectedReports.length > 0) {
-        // We have selections, update them
-        updatedData.selectedReports = selectedReports
-      } else if (!currentProject.selectedReports) {
-        // Project doesn't have selectedReports defined yet, set to empty array
-        updatedData.selectedReports = []
-      } else {
-        // Empty array passed but project has selections - log but don't update
-      }
-
-      updateCurrentProject(updatedData)
-    } else if (nodes.length > 0 || edges.length > 0) {
-      // Create a default project if we have data but no current project
-      const newProject = createProject('My Research Project')
-      updateCurrentProject({ nodes, edges, query, selectedReports })
-    }
-  }
-
   const exportProjects = (): string => {
     return exportFlowProjects()
   }
@@ -230,19 +365,28 @@ export function useFlowProjects(): UseFlowProjectsReturn {
 
         if (savedProjects) {
           const parsedProjects = JSON.parse(savedProjects) as FlowProject[]
-          setProjects(parsedProjects)
+          
+          // Process all imported projects
+          const normalizedProjects = parsedProjects.map(project => ({
+            ...project,
+            selectedReports: project.selectedReports || [],
+            // Post-process nodes to handle loading states
+            nodes: postprocessLoadedNodes(project.nodes || [])
+          }))
+          
+          setProjects(normalizedProjects)
 
           if (savedCurrentProjectId) {
-            const current = parsedProjects.find(
+            const current = normalizedProjects.find(
               (p) => p.id === savedCurrentProjectId
             )
             if (current) {
               setCurrentProject(current)
-            } else if (parsedProjects.length > 0) {
-              setCurrentProject(parsedProjects[0])
+            } else if (normalizedProjects.length > 0) {
+              setCurrentProject(normalizedProjects[0])
             }
-          } else if (parsedProjects.length > 0) {
-            setCurrentProject(parsedProjects[0])
+          } else if (normalizedProjects.length > 0) {
+            setCurrentProject(normalizedProjects[0])
           }
         }
 
@@ -253,6 +397,101 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     }
     return success
   }
+
+  // Helper function to get the current saved state with post-processing
+  const getSavedState = () => {
+    // First try to get from current project in state
+    if (currentProject) {
+      return {
+        nodes: postprocessLoadedNodes(currentProject.nodes || []),
+        edges: currentProject.edges || [],
+        query: currentProject.query || '',
+        selectedReports: currentProject.selectedReports || []
+      }
+    }
+    
+    // If no current project in state, try direct localStorage lookup
+    try {
+      const savedCurrentProjectId = localStorage.getItem(CURRENT_PROJECT_KEY)
+      const savedProjects = localStorage.getItem(LOCAL_STORAGE_KEY)
+      
+      if (savedCurrentProjectId && savedProjects) {
+        const parsedProjects = JSON.parse(savedProjects) as FlowProject[]
+        const current = parsedProjects.find(p => p.id === savedCurrentProjectId)
+        
+        if (current) {
+          return {
+            nodes: postprocessLoadedNodes(current.nodes || []),
+            edges: current.edges || [],
+            query: current.query || '',
+            selectedReports: current.selectedReports || []
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get saved state from localStorage:', error)
+    }
+    
+    // Default empty state if nothing found
+    return { nodes: [], edges: [], query: '', selectedReports: [] }
+  }
+
+  // Get raw node and edge data and immediately save to localStorage
+  const saveDirect = () => {
+    if (!currentProject) return;
+    
+    try {
+      // Just directly save the current project we have in memory
+      const allProjects = [...projects];
+      const currentIndex = allProjects.findIndex(p => p.id === currentProject.id);
+      
+      if (currentIndex >= 0) {
+        // Update the current project with what we have
+        allProjects[currentIndex] = {
+          ...allProjects[currentIndex],
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Save directly to localStorage
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allProjects));
+        console.log('Directly saved current state to localStorage!');
+      }
+    } catch (error) {
+      console.error('Error directly saving to localStorage:', error);
+    }
+  };
+
+  // A simplified method to save the current state without preprocessing
+  const simpleSave = (nodes: Node[], edges: Edge[], query: string, selectedReports: string[] = []) => {
+    console.log('Simple save method called with nodes:', nodes);
+    
+    // First save the state to our React state
+    if (currentProject) {
+      const updatedData = {
+        nodes,
+        edges,
+        query,
+        selectedReports
+      };
+      
+      updateCurrentProject(updatedData);
+      
+      // Also force a direct localStorage save 
+      const updatedProject = {
+        ...currentProject,
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+      };
+      
+      const updatedProjects = projects.map(p => 
+        p.id === currentProject.id ? updatedProject : p
+      );
+      
+      // Save directly to localStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+      console.log('Directly saved to localStorage!');
+    }
+  };
 
   return {
     projects,
@@ -266,5 +505,8 @@ export function useFlowProjects(): UseFlowProjectsReturn {
     importProjects: importProjectsData,
     storageInfo,
     refreshStorageInfo,
+    getSavedState,
+    saveDirect,
+    simpleSave,
   }
 }
