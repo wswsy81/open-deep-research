@@ -432,9 +432,9 @@ You'll need two components to use Google Custom Search:
    - After creation, find your Search Engine ID in the "Overview" page's "Basic" section
    - Copy the ID (this is the `cx` parameter) for the `GOOGLE_SEARCH_CX` environment variable
 
-#### EXA API Key
+#### Firecrawl API Key
 
-1. Visit [EXA Platform](https://exa.ai/)
+1. Visit [Firecrawl Platform](https://firecrawl.co/)
 2. Sign up or log in to your account
 3. Go to API Keys section
 4. Create a new API key

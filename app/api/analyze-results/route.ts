@@ -93,17 +93,20 @@ export async function POST(request: Request) {
 Research Topic: "${prompt}"
 
 Analyze these search results and score them based on:
-1. Relevance to the research topic
-2. Information quality and depth
-3. Source credibility
-4. Uniqueness of perspective
+1. Relevance to the research topic (40%)
+2. Information quality and depth (30%)
+3. Source credibility and authority (20%)
+4. Uniqueness of perspective and diversity (10%)
 
 For each result, assign a score from 0 to 1, where:
-- 1.0: Highly relevant, authoritative, and comprehensive
-- 0.7-0.9: Very relevant with good information
-- 0.4-0.6: Moderately relevant or basic information
-- 0.1-0.3: Tangentially relevant
-- 0.0: Not relevant or unreliable
+- 1.0: Exceptional - Highly relevant, authoritative source, comprehensive coverage, unique insights
+- 0.8-0.9: Excellent - Very relevant, reputable source, detailed information
+- 0.6-0.7: Good - Relevant with solid information from reliable sources
+- 0.4-0.5: Fair - Moderately relevant or basic information
+- 0.2-0.3: Poor - Tangentially relevant or questionable quality
+- 0.0-0.1: Unsuitable - Not relevant, unreliable, or duplicate information
+
+Ensure diversity in the selected sources. Penalize duplicate or highly similar content.
 
 Here are the results to analyze:
 
@@ -128,10 +131,10 @@ Format your response as a JSON object with this structure:
       "reasoning": "Brief explanation of the score"
     }
   ],
-  "analysis": "Brief overall analysis of the result set"
+  "analysis": "Brief overall analysis of the result set, including assessment of source diversity and quality distribution"
 }
 
-Focus on finding results that provide unique, high-quality information relevant to the research topic.`
+Focus on finding results that provide unique, high-quality information relevant to the research topic. Flag any potential quality or diversity issues in the analysis.`
 
     try {
       const response = await generateWithModel(systemPrompt, platformModel)
