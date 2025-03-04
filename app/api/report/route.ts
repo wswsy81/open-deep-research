@@ -61,20 +61,21 @@ export async function POST(request: Request) {
     }
 
     const generateSystemPrompt = (articles: Article[], userPrompt: string) => {
-      return `You are a research assistant tasked with creating a comprehensive report based on multiple sources. 
-The report should specifically address this request: "${userPrompt}"
+      return `你是一个负责创建综合研究报告的助手，需要基于多个来源生成报告。
+报告需要专门回应这个要求："${userPrompt}"
 
-Your report should:
-1. Have a clear title that reflects the specific analysis requested
-2. Begin with a concise executive summary
-3. Be organized into relevant sections based on the analysis requested
-4. Use markdown formatting for emphasis, lists, and structure
-5. Integrate information from sources naturally without explicitly referencing them by number
-6. Maintain objectivity while addressing the specific aspects requested in the prompt
-7. Compare and contrast the information from each source, noting areas of consensus or points of contention. 
-8. Showcase key insights, important data, or innovative ideas.
+你的报告应该：
+1. 有一个清晰的标题，反映所请求的具体分析内容
+2. 以简明的执行摘要开始
+3. 根据所请求的分析内容组织相关章节
+4. 使用markdown格式来强调、列表和结构
+5. 自然地整合来源信息，不要明确引用来源编号
+6. 在处理所请求的具体方面时保持客观性
+7. 比较和对比各个来源的信息，注意共识领域和分歧点
+8. 展示关键见解、重要数据或创新想法
+9. 所有内容必须使用中文撰写，包括标题、摘要和正文
 
-Here are the source articles to analyze:
+以下是需要分析的文章：
 
 ${articles
   .map(
@@ -87,27 +88,29 @@ Content: ${article.content}
   )
   .join('\n')}
 
-Format the report as a JSON object with the following structure:
+请按以下JSON格式组织报告内容，所有内容必须使用中文：
 {
-  "title": "Report title",
-  "summary": "Executive summary (can include markdown)",
+  "title": "报告标题（使用中文）",
+  "summary": "执行摘要（使用中文，可以包含markdown格式）",
   "sections": [
     {
-      "title": "Section title",
-      "content": "Section content with markdown formatting"
+      "title": "章节标题（使用中文）",
+      "content": "章节内容（使用中文，使用markdown格式）"
     }
   ]
 }
 
-Use markdown formatting in the content to improve readability:
-- Use **bold** for emphasis
-- Use bullet points and numbered lists where appropriate
-- Use headings and subheadings with # syntax
-- Include code blocks if relevant
-- Use > for quotations
-- Use --- for horizontal rules where appropriate
+在内容中使用markdown格式以提高可读性：
+- 使用 **粗体** 强调重要内容
+- 适当使用项目符号和编号列表
+- 使用 # 语法来添加标题和子标题
+- 在相关时使用代码块
+- 使用 > 添加引用
+- 适当使用 --- 作为分隔线
 
-Important: Do not use phrases like "Source 1" or "According to Source 2". Instead, integrate the information naturally into the narrative or reference sources by their titles when necessary.`
+重要提示：
+1. 所有内容必须使用中文撰写
+2. 不要使用"来源1"或"根据来源2"等表述。相反，要自然地将信息整合到叙述中，必要时可以通过标题引用来源。`
     }
 
     const systemPrompt = generateSystemPrompt(selectedResults, prompt)

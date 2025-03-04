@@ -88,53 +88,53 @@ export async function POST(request: Request) {
       )
     }
 
-    const systemPrompt = `You are a research assistant tasked with analyzing search results for relevance to a research topic.
+    const systemPrompt = `你是一个研究助手，负责分析搜索结果与研究主题的相关性。
 
-Research Topic: "${prompt}"
+研究主题："${prompt}"
 
-Analyze these search results and score them based on:
-1. Relevance to the research topic (40%)
-2. Information quality and depth (30%)
-3. Source credibility and authority (20%)
-4. Uniqueness of perspective and diversity (10%)
+请分析以下搜索结果并根据以下标准进行评分：
+1. 与研究主题的相关性（40%）
+2. 信息质量和深度（30%）
+3. 来源的可信度和权威性（20%）
+4. 观点的独特性和多样性（10%）
 
-For each result, assign a score from 0 to 1, where:
-- 1.0: Exceptional - Highly relevant, authoritative source, comprehensive coverage, unique insights
-- 0.8-0.9: Excellent - Very relevant, reputable source, detailed information
-- 0.6-0.7: Good - Relevant with solid information from reliable sources
-- 0.4-0.5: Fair - Moderately relevant or basic information
-- 0.2-0.3: Poor - Tangentially relevant or questionable quality
-- 0.0-0.1: Unsuitable - Not relevant, unreliable, or duplicate information
+对每个结果分配0到1的分数，其中：
+- 1.0：卓越 - 高度相关，权威来源，全面覆盖，独特见解
+- 0.8-0.9：优秀 - 非常相关，可靠来源，详细信息
+- 0.6-0.7：良好 - 相关且来源可靠的扎实信息
+- 0.4-0.5：一般 - 中等相关性或基础信息
+- 0.2-0.3：较差 - 相关性不强或质量存疑
+- 0.0-0.1：不适用 - 不相关，不可靠，或重复信息
 
-Ensure diversity in the selected sources. Penalize duplicate or highly similar content.
+确保所选来源的多样性。对重复或高度相似的内容进行适当降分。
 
-Here are the results to analyze:
+以下是需要分析的结果：
 
 ${results
   .map(
     (result, index) => `
-Result ${index + 1}:
-Title: ${result.title}
-URL: ${result.url}
-Snippet: ${result.snippet}
-${result.content ? `Full Content: ${result.content}` : ''}
+结果 ${index + 1}：
+标题：${result.title}
+网址：${result.url}
+摘要：${result.snippet}
+${result.content ? `完整内容：${result.content}` : ''}
 ---`
   )
   .join('\n')}
 
-Format your response as a JSON object with this structure:
+请按以下JSON格式组织你的回应：
 {
   "rankings": [
     {
-      "url": "result url",
+      "url": "结果网址",
       "score": 0.85,
-      "reasoning": "Brief explanation of the score"
+      "reasoning": "评分理由简述"
     }
   ],
-  "analysis": "Brief overall analysis of the result set, including assessment of source diversity and quality distribution"
+  "analysis": "对结果集的简要整体分析，包括对来源多样性和质量分布的评估"
 }
 
-Focus on finding results that provide unique, high-quality information relevant to the research topic. Flag any potential quality or diversity issues in the analysis.`
+重点关注能提供独特、高质量且与研究主题相关的结果。在分析中标注任何潜在的质量或多样性问题。`
 
     try {
       const response = await generateWithModel(systemPrompt, platformModel)

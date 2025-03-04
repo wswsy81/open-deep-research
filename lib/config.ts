@@ -10,14 +10,14 @@ export const CONFIG = {
 
   // Search settings
   search: {
-    resultsPerPage: 10,
-    maxSelectableResults: 3,
-    provider: 'google' as 'google' | 'bing' | 'exa', // Default search provider
+    resultsPerPage: 30,
+    maxSelectableResults: 10,
+    provider: 'exa' as 'google' | 'bing' | 'exa', // Default search provider
     safeSearch: {
       google: 'active' as 'active' | 'off',
       bing: 'moderate' as 'moderate' | 'strict' | 'off',
     },
-    market: 'en-US',
+    market: 'en-US,zh-CN',
   },
 
   // AI Platform settings

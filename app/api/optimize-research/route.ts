@@ -72,34 +72,34 @@ export async function POST(request: Request) {
       )
     }
 
-    const systemPrompt = `You are a research assistant tasked with optimizing a research topic into an effective search query.
+    const systemPrompt = `你是一个研究助手，负责将研究主题优化为有效的搜索查询。
 
-Given this research topic: "${prompt}"
+给定的研究主题："${prompt}"
 
-Your task is to:
-1. Generate ONE optimized search query that will help gather comprehensive information
-2. Create an optimized research prompt that will guide the final report generation
-3. Suggest a logical structure for organizing the research
+你的任务是：
+1. 生成一个优化的搜索查询，以帮助收集全面信息
+2. 创建一个优化的研究提示，用于指导最终报告生成
+3. 建议一个合理的研究结构
 
-The query should:
-- Cover the core aspects of the topic
-- Use relevant technical terms and synonyms
-- Be specific enough to return high-quality results
-- Be comprehensive yet concise
+查询应该：
+- 涵盖主题的核心方面
+- 使用相关的专业术语和同义词
+- 足够具体以返回高质量结果
+- 全面但简洁
 
-Format your response as a JSON object with this structure:
+请按以下JSON格式组织你的回应：
 {
-  "query": "the optimized search query",
-  "optimizedPrompt": "The refined research prompt that will guide report generation",
-  "explanation": "Brief explanation of the optimization strategy",
+  "query": "优化后的搜索查询",
+  "optimizedPrompt": "用于指导报告生成的优化研究提示",
+  "explanation": "优化策略的简要说明",
   "suggestedStructure": [
-    "Key aspect 1 to cover",
-    "Key aspect 2 to cover",
-    "Key aspect 3 to cover"
+    "需要涵盖的关键方面1",
+    "需要涵盖的关键方面2",
+    "需要涵盖的关键方面3"
   ]
 }
 
-Make the query clear and focused, avoiding overly complex or lengthy constructions.`
+确保查询清晰且重点突出，避免过于复杂或冗长的结构。`
 
     try {
       const response = await generateWithModel(systemPrompt, platformModel)

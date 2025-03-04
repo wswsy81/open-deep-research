@@ -371,7 +371,12 @@ export default function Home() {
           return res.json()
         })
 
-        const newResults = (response.webPages?.value || []).map(
+        const searchResults = response.webPages?.value || []
+        if (searchResults.length === 0) {
+          throw new Error('未找到搜索结果，请尝试使用不同的搜索词。')
+        }
+
+        const newResults = searchResults.map(
           (result: SearchResult) => ({
             ...result,
             id: `search-${Date.now()}-${result.id || result.url}`,

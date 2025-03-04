@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const prompt = `Create a comprehensive consolidated report that synthesizes the following research reports:
+    const prompt = `请创建一个综合性的合并报告，整合以下研究报告：
 
 ${reports
   .map(
@@ -48,27 +48,27 @@ ${report.sections
   )
   .join('\n\n')}
 
-Analyze and synthesize these reports to create a comprehensive consolidated report that:
-1. Identifies common themes and patterns across the reports
-2. Highlights key insights and findings
-3. Shows how different reports complement or contrast each other
-4. Draws overarching conclusions
-5. Suggests potential areas for further research
+分析并综合这些报告，创建一个全面的合并报告，需要：
+1. 识别报告之间的共同主题和模式
+2. 突出关键见解和发现
+3. 展示不同报告之间如何相互补充或对比
+4. 得出总体结论
+5. 建议潜在的进一步研究领域
 
-Format the response as a structured report with:
-- A clear title that encompasses the overall research topic
-- An executive summary of the consolidated findings
-- Detailed sections that analyze different aspects
-- A conclusion that ties everything together
+请按以下结构组织报告：
+- 一个涵盖整体研究主题的清晰标题
+- 合并发现的执行摘要
+- 分析不同方面的详细章节
+- 将所有内容联系在一起的结论
 
-Return the response in the following JSON format:
+请按以下JSON格式返回响应：
 {
-  "title": "Overall Research Topic Title",
-  "summary": "Executive summary of findings",
+  "title": "整体研究主题标题",
+  "summary": "发现的执行摘要",
   "sections": [
     {
-      "title": "Section Title",
-      "content": "Section content"
+      "title": "章节标题",
+      "content": "章节内容"
     }
   ]
 }`
