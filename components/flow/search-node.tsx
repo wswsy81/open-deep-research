@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SUPPORTED_FILE_TYPES } from '@/lib/file-upload'
 import { SearchNodeData } from '@/types'
+import { useSearchHistory } from '@/hooks/use-search-history'
 
 export const SearchNode = memo(function SearchNode({
   data,
@@ -13,6 +14,12 @@ export const SearchNode = memo(function SearchNode({
   data: SearchNodeData
 }) {
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const { saveSearch } = useSearchHistory()
+
+  // 当搜索结果更新时保存到历史记录
+  if (data.results && data.results.length > 0 && data.query) {
+    saveSearch(data.query, data.results)
+  }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null)

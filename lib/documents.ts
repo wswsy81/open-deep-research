@@ -16,11 +16,6 @@ const md = new MarkdownIt()
 
 export async function generateDocx(report: Report): Promise<Buffer> {
   try {
-    console.log(
-      'Starting DOCX generation with report:',
-      JSON.stringify(report, null, 2)
-    )
-
     const doc = new Document({
       sections: [
         {
@@ -62,7 +57,6 @@ export async function generateDocx(report: Report): Promise<Buffer> {
             }),
           },
           children: [
-            // Summary with increased spacing
             new Paragraph({
               children: [
                 new TextRun({
@@ -73,7 +67,6 @@ export async function generateDocx(report: Report): Promise<Buffer> {
               spacing: { before: 800, after: 800 },
               alignment: AlignmentType.JUSTIFIED,
             }),
-            // Sections with increased spacing
             ...report.sections.flatMap((section) => [
               new Paragraph({
                 children: [
@@ -102,150 +95,72 @@ export async function generateDocx(report: Report): Promise<Buffer> {
       ],
     })
 
-    console.log('Document instance created')
-
-    try {
-      console.log('Starting document packing')
-      const buffer = await Packer.toBuffer(doc)
-      console.log('Document packed successfully, buffer size:', buffer.length)
-      return buffer
-    } catch (packError) {
-      console.error('Error packing document:', packError)
-      throw packError
-    }
+    return await Packer.toBuffer(doc)
   } catch (error) {
-    console.error('Error in generateDocx:', error)
-    if (error instanceof Error) {
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      })
-    }
-    throw new Error(
-      `Failed to generate DOCX: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`
-    )
+    console.error('Error generating DOCX:', error)
+    throw error
   }
 }
 
-export function generatePdf(report: Report): Buffer {
+export async function generatePdf(report: Report): Promise<Uint8Array> {
   try {
-    const doc = new jsPDF({
+    const pdf = new jsPDF({
       orientation: 'portrait',
-      unit: 'mm',
+      unit: 'pt',
       format: 'a4',
+      putOnlyUsedFonts: true,
+      compress: true
     })
 
-    const pageWidth = doc.internal.pageSize.width
-    const margin = 20
+    // 设置中文字体和语言
+    pdf.setFont('helvetica', 'normal')
+    pdf.setLanguage('zh-CN')
+
+    const pageWidth = pdf.internal.pageSize.width
+    const margin = 40
     const contentWidth = pageWidth - 2 * margin
+    let y = margin
 
-    // Helper function to add text with proper line breaks and page management
-    const addText = (
-      text: string,
-      y: number,
-      fontSize: number,
-      isBold: boolean = false,
-      isJustified: boolean = false,
-      isHTML: boolean = false
-    ): number => {
-      doc.setFontSize(fontSize)
-      doc.setFont('helvetica', isBold ? 'bold' : 'normal')
+    // 标题
+    pdf.setFontSize(24)
+    const titleLines = pdf.splitTextToSize(report.title || 'Untitled Report', contentWidth)
+    pdf.text(titleLines, pageWidth / 2, y, { align: 'center' })
+    y += titleLines.length * 30 + 20
 
-      // If the text contains markdown, convert it to plain text
-      let processedText = text
-      if (isHTML) {
-        // Remove HTML tags but preserve line breaks
-        processedText = text
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<\/p>/gi, '\n')
-          .replace(/<[^>]*>/g, '')
-          // Handle markdown-style bold
-          .replace(/\*\*(.*?)\*\*/g, (_, p1) => {
-            doc.setFont('helvetica', 'bold')
-            const result = p1
-            doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-            return result
-          })
-          // Handle markdown-style italic
-          .replace(/\*(.*?)\*/g, (_, p1) => {
-            doc.setFont('helvetica', 'italic')
-            const result = p1
-            doc.setFont('helvetica', isBold ? 'bold' : 'normal')
-            return result
-          })
+    // 摘要
+    pdf.setFontSize(12)
+    const summaryHtml = md.render(report.summary || '')
+    const summaryText = summaryHtml.replace(/<[^>]*>/g, '')
+    const summaryLines = pdf.splitTextToSize(summaryText, contentWidth)
+    pdf.text(summaryLines, margin, y)
+    y += summaryLines.length * 15 + 20
+
+    // 章节
+    for (const section of report.sections) {
+      // 检查是否需要新页
+      if (y > pdf.internal.pageSize.height - margin) {
+        pdf.addPage()
+        y = margin
       }
 
-      const lines = doc.splitTextToSize(processedText, contentWidth)
-      const lineHeight = fontSize * 0.3527 // Convert pt to mm
+      // 章节标题
+      pdf.setFontSize(16)
+      pdf.text(section.title || '', margin, y)
+      y += 20
 
-      lines.forEach((line: string) => {
-        if (y > 270) {
-          doc.addPage()
-          y = margin
-        }
-
-        // Handle bullet points
-        if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
-          doc.text('•', margin, y)
-          doc.text(line.trim().substring(1), margin + 5, y, {
-            align: isJustified ? 'justify' : 'left',
-            maxWidth: contentWidth - 5,
-          })
-        } else {
-          doc.text(line, margin, y, {
-            align: isJustified ? 'justify' : 'left',
-            maxWidth: contentWidth,
-          })
-        }
-        y += lineHeight + 1 // 1mm extra spacing between lines
-      })
-
-      return y + lineHeight // Return new Y position
+      // 章节内容
+      pdf.setFontSize(12)
+      const contentHtml = md.render(section.content || '')
+      const contentText = contentHtml.replace(/<[^>]*>/g, '')
+      const contentLines = pdf.splitTextToSize(contentText, contentWidth)
+      pdf.text(contentLines, margin, y)
+      y += contentLines.length * 15 + 20
     }
 
-    // Start position
-    let currentY = margin
-
-    // Title
-    currentY = addText(report.title, currentY, 24, true)
-    currentY += 5 // Reduced from 10 to 5
-
-    // Convert markdown to HTML for processing
-    const summaryHtml = md.render(report.summary)
-    currentY = addText(summaryHtml, currentY, 12, false, true, true)
-    currentY += 3 // Reduced from 10 to 3
-
-    // Sections
-    report.sections.forEach((section) => {
-      currentY += 2 // Reduced from 5 to 2
-
-      // Section title
-      currentY = addText(section.title, currentY, 16, true)
-      currentY += 2 // Reduced from 5 to 2
-
-      // Convert markdown to HTML for processing
-      const contentHtml = md.render(section.content)
-      currentY = addText(contentHtml, currentY, 12, false, true, true)
-      currentY += 2 // Reduced from 5 to 2
-    })
-
-    // Add page numbers
-    const pageCount = doc.internal.pages.length - 1
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, 285, {
-        align: 'center',
-      })
-    }
-
-    return Buffer.from(doc.output('arraybuffer'))
+    const pdfBuffer = pdf.output('arraybuffer')
+    return new Uint8Array(pdfBuffer)
   } catch (error) {
     console.error('Error generating PDF:', error)
-    throw new Error('Failed to generate PDF')
+    throw error
   }
 }

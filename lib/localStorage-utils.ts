@@ -11,6 +11,16 @@ export function getLocalStorageUsage(): {
   available: number // Estimated available space in bytes
   limit: number // Estimated limit in bytes
 } {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return {
+      usage: 0,
+      usagePercent: 0,
+      available: 0,
+      limit: 0,
+    }
+  }
+
   try {
     // Current usage
     let totalSize = 0

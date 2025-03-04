@@ -22,6 +22,14 @@ export function extractAndParseJSON(response: string) {
         // Remove leading/trailing whitespace in multiline strings
         .replace(/:\s*"[\s\n]+/g, ': "')
         .replace(/[\s\n]+"/g, '"')
+        // Fix potential issues with Chinese characters
+        .replace(/([\u4e00-\u9fa5])\s+([\u4e00-\u9fa5])/g, '$1$2')
+        // Clean up any invalid control characters
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+        // Ensure proper spacing around quotes
+        .replace(/([^\\])"\s*:/g, '$1": ')
+        // Fix potential unescaped quotes in content
+        .replace(/(?<!\\)"(?=.*"\s*:)/g, '\\"')
     )
   }
 

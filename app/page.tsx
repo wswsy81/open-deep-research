@@ -39,6 +39,7 @@ import { KnowledgeBaseSidebar } from '@/components/knowledge-base-sidebar'
 import { ReportActions } from '@/components/report-actions'
 import { ModelSelect, DEFAULT_MODEL } from '@/components/model-select'
 import { handleLocalFile, SUPPORTED_FILE_TYPES } from '@/lib/file-upload'
+import { SearchHistoryDialog } from '@/components/search-history-dialog'
 
 const timeFilters = [
   { value: 'all', label: 'Any time' },

@@ -48,7 +48,7 @@ ${section.content}
   )
   .join('\n')}
 `.trim()
-        headers.set('Content-Type', 'text/plain')
+        headers.set('Content-Type', 'text/plain; charset=utf-8')
         break
     }
 
@@ -73,4 +73,4 @@ ${section.content}
       { status: 500 }
     )
   }
-} 
+}
